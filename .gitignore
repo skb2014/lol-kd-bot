@@ -9,4 +9,4 @@ venv/
 .idea/
 
 # log files
-.log
+*.log
