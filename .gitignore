@@ -1,3 +1,12 @@
+# don't push the .env file which contains the API keys and such
 .env
+
+# ignore the venv created by PyCharm
 venv/
+.venv/
+
+# PyCharm-specific hidden configuration files
 .idea/
+
+# log files
+.log
