@@ -31,8 +31,11 @@ async def update_matches_loop():
         most_recent_matches = json.load(f)
     most_recent_matches_updated = {}
     for riot_id in riot_ids:
+        print(f"Checking {riot_id}'s most recent match...")
         puuid = get_puuid_from_riot_id(riot_id)
+        print(f"{riot_id}'s PUUID is {puuid}")
         match_id = get_most_recent_match(puuid)
+        print(f"{riot_id}'s most recent match ID is {match_id}")
         if riot_id not in most_recent_matches:
             kda = get_kda_from_most_recent_match(puuid, match_id)
             await print_match_kda(riot_id, kda)
