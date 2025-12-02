@@ -18,10 +18,13 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 async def print_match_kda(riot_id, kda):
     """Prints the Riot ID and KDA in each of the given discord channels."""
+    if kda is None:
+        print(f"No KDA found for {riot_id}, returning")
+        return
     for channel in channels:
         await channel.send(f'{riot_id} has just played a game! KDA: {kda["kills"]}/{kda["deaths"]}/{kda["assists"]}')
 
-@tasks.loop(seconds=15)
+@tasks.loop(seconds=30)
 async def update_matches_loop():
     """Repeatedly checks all players for new matches, and if one is found, the bot types their KDA in the given discord channels.
     The most recent match IDs are saved in a .json file."""
@@ -36,13 +39,16 @@ async def update_matches_loop():
         print(f"{riot_id}'s PUUID is {puuid}")
         match_id = get_most_recent_match(puuid)
         print(f"{riot_id}'s most recent match ID is {match_id}")
-        if riot_id not in most_recent_matches:
-            kda = get_kda_from_most_recent_match(puuid, match_id)
-            await print_match_kda(riot_id, kda)
-        elif most_recent_matches[riot_id] != match_id:
-            kda = get_kda_from_most_recent_match(puuid, match_id)
-            await print_match_kda(riot_id, kda)
-        most_recent_matches_updated[riot_id] = match_id
+        if match_id is not None:
+            if riot_id not in most_recent_matches:
+                kda = get_kda_from_most_recent_match(puuid, match_id)
+                await print_match_kda(riot_id, kda)
+            elif most_recent_matches[riot_id] != match_id:
+                kda = get_kda_from_most_recent_match(puuid, match_id)
+                await print_match_kda(riot_id, kda)
+            most_recent_matches_updated[riot_id] = match_id
+        else:
+            most_recent_matches_updated[riot_id] = most_recent_matches[riot_id]
     # update the .json file
     with open("most_recent_matches.json", "w") as f:
         json.dump(most_recent_matches_updated, f, indent=4)
