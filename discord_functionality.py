@@ -4,6 +4,7 @@ from riot_functionality import *
 import json
 from dotenv import load_dotenv
 import os
+import logging
 
 load_dotenv()
 guild_ids = list(map(int, os.getenv('DISCORD_GUILD_IDS').split(',')))
@@ -16,11 +17,13 @@ intents.message_content = True
 intents.guilds = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+logger = logging.getLogger('Match Checker')
+logger.setLevel(logging.DEBUG)
+logger.addHandler(handler)
+
 async def print_match_kda(riot_id, kda):
     """Prints the Riot ID and KDA in each of the given discord channels."""
-    if kda is None:
-        print(f"No KDA found for {riot_id}, returning")
-        return
     for channel in channels:
         await channel.send(f'{riot_id} has just played a game! KDA: {kda["kills"]}/{kda["deaths"]}/{kda["assists"]}')
 
@@ -29,27 +32,41 @@ async def update_matches_loop():
     """Repeatedly checks all players for new matches, and if one is found, the bot types their KDA in the given discord channels.
     The most recent match IDs are saved in a .json file."""
     print("Checking for new matches...")
-    # read .json file
+    logger.info("Checking for new matches...")
+
     with open('most_recent_matches.json', 'r') as f:
         most_recent_matches = json.load(f)
     most_recent_matches_updated = {}
+
     for riot_id in riot_ids:
-        print(f"Checking {riot_id}'s most recent match...")
+        logger.info(f"Checking {riot_id}")
         puuid = get_puuid_from_riot_id(riot_id)
-        print(f"{riot_id}'s PUUID is {puuid}")
-        match_id = get_most_recent_match(puuid)
-        print(f"{riot_id}'s most recent match ID is {match_id}")
-        if match_id is not None:
-            if riot_id not in most_recent_matches:
-                kda = get_kda_from_most_recent_match(puuid, match_id)
-                await print_match_kda(riot_id, kda)
-            elif most_recent_matches[riot_id] != match_id:
-                kda = get_kda_from_most_recent_match(puuid, match_id)
-                await print_match_kda(riot_id, kda)
-            most_recent_matches_updated[riot_id] = match_id
-        else:
+        if puuid is None:
+            logger.warning(f"Failed to get PUUID for {riot_id}")
             most_recent_matches_updated[riot_id] = most_recent_matches[riot_id]
-    # update the .json file
+            continue
+
+        match_id = get_most_recent_match(puuid)
+        if match_id is None:
+            logger.warning(f"Failed to get match ID for {riot_id}")
+            most_recent_matches_updated[riot_id] = most_recent_matches[riot_id]
+            continue
+
+        kda = None
+        if riot_id not in most_recent_matches:
+            kda = get_kda_from_most_recent_match(puuid, match_id)
+            if kda is None:
+                logger.warning(f"Failed to get KDA for {riot_id}")
+        elif most_recent_matches[riot_id] != match_id:
+            kda = get_kda_from_most_recent_match(puuid, match_id)
+            if kda is None:
+                logger.warning(f"Failed to get KDA for {riot_id}")
+        if kda:
+            await print_match_kda(riot_id, kda)
+
+        # ensures that the kda message is sent for a new match
+        most_recent_matches_updated[riot_id] = match_id
+
     with open("most_recent_matches.json", "w") as f:
         json.dump(most_recent_matches_updated, f, indent=4)
 

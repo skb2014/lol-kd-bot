@@ -20,10 +20,10 @@ def get_puuid_from_riot_id(riot_id):
     game_name, tag_line = riot_id.split('#')
     url = f"https://{routing_region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{game_name}/{tag_line}?api_key={riot_api_key}"
     response = requests.get(url)
-    print(f"request sent to riot/account/v1/accounts/by-riot-id/")
     if response_checker(response):
         return response.json()['puuid']
     else:
+        print("Failed to get response from riot/account/v1/accounts/by-riot-id/")
         return None
 
 def get_most_recent_match(puuid):
@@ -33,10 +33,10 @@ def get_most_recent_match(puuid):
         return None
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?start=0&count=1&api_key={riot_api_key}"
     response = requests.get(url)
-    print(f"request sent to lol/match/v5/matches/by-puuid/, response code: {response.status_code}")
     if response_checker(response):
         return response.json()[0]
     else:
+        print("Failed to get response from riot/account/v1/accounts/by-puuid/")
         return None
 
 def get_kda_from_most_recent_match(puuid, match_id):
@@ -48,7 +48,6 @@ def get_kda_from_most_recent_match(puuid, match_id):
         print("No match ID entered, returning None")
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}?api_key={riot_api_key}"
     response = requests.get(url)
-    print(f"request sent to lol/match/v5/matches/, response code: {response.status_code}")
     if response_checker(response):
         player_index = response.json()['metadata']['participants'].index(puuid)
         player_data = response.json()['info']['participants'][player_index]
@@ -57,4 +56,5 @@ def get_kda_from_most_recent_match(puuid, match_id):
         assists = player_data['assists']
         return {'kills': kills, 'deaths': deaths, 'assists': assists}
     else:
+        print("Failed to get response from riot/match/v5/matches/")
         return None
