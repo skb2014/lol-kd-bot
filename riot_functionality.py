@@ -1,11 +1,11 @@
-import os
+from os import getenv
 from dotenv import load_dotenv
 import requests
 
 load_dotenv()
-riot_api_key = os.getenv('RIOT_API_KEY')
-routing_region = os.getenv('ROUTING_REGION')
-riot_ids = os.getenv('RIOT_IDS').split(',')
+riot_api_key = getenv('RIOT_API_KEY')
+routing_region = getenv('ROUTING_REGION')
+riot_ids = getenv('RIOT_IDS').split(',')
 
 def response_checker(response):
     """Checks the status code of a response and raises an exception if it's not 200"""

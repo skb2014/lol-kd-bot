@@ -10,3 +10,8 @@ venv/
 
 # log files
 *.log
+
+# also don't want to push the most_recent_matches file
+# because the file on the Pi will actually have the most recent matches
+# and this one won't
+most_recent_matches.json

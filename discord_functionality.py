@@ -2,13 +2,11 @@ import discord
 from discord.ext import commands, tasks
 from riot_functionality import *
 import json
-from dotenv import load_dotenv
-import os
 import logging
 
 load_dotenv()
-guild_ids = list(map(int, os.getenv('DISCORD_GUILD_IDS').split(',')))
-channel_ids = list(map(int, os.getenv('DISCORD_CHANNEL_IDS').split(',')))
+guild_ids = list(map(int, getenv('DISCORD_GUILD_IDS').split(',')))
+channel_ids = list(map(int, getenv('DISCORD_CHANNEL_IDS').split(',')))
 guilds = []
 channels = []
 
@@ -62,6 +60,7 @@ async def update_matches_loop():
             if kda is None:
                 logger.warning(f"Failed to get KDA for {riot_id}")
         if kda:
+            print(f"Found a new KDA for {riot_id}")
             await print_match_kda(riot_id, kda)
 
         # ensures that the kda message is sent for a new match
