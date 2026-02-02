@@ -11,6 +11,9 @@ venv/
 # log files
 *.log
 
+# local folder that python might create
+__pycache__/
+
 # also don't want to push the most_recent_matches file
 # because the file on the Pi will actually have the most recent matches
 # and this one won't
