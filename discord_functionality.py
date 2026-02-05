@@ -10,6 +10,9 @@ channel_ids = list(map(int, getenv('DISCORD_CHANNEL_IDS').split(',')))
 guilds = []
 channels = []
 
+with open("puuids.json") as f:
+    puuids = json.load(f)
+
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
@@ -22,9 +25,9 @@ logger.addHandler(handler)
 
 async def print_match_kda(riot_id, kda):
     """Prints the Riot ID and KDA in each of the given discord channels."""
-    result = "lost" if kda["nexusLost"] else "won"
+    result = "lost" if kda["lost"] else "won"
     for channel in channels:
-        await channel.send(f'{riot_id} has just {result} a game! KDA: {kda["kills"]}/{kda["deaths"]}/{kda["assists"]}')
+        await channel.send(f'{riot_id} has just **{result}** a game. {kda['sided']}KDA: {kda["kills"]}/{kda["deaths"]}/{kda["assists"]}')
 
 @tasks.loop(seconds=30)
 async def update_matches_loop():
@@ -37,9 +40,10 @@ async def update_matches_loop():
         most_recent_matches = json.load(f)
     most_recent_matches_updated = {}
 
+    seen_matches = {}
     for riot_id in riot_ids:
         logger.info(f"Checking {riot_id}")
-        puuid = get_puuid_from_riot_id(riot_id)
+        puuid = get_puuid_from_riot_id(riot_id) if riot_id not in puuids else puuids[riot_id]
         if puuid is None:
             logger.warning(f"Failed to get PUUID for {riot_id}")
             most_recent_matches_updated[riot_id] = most_recent_matches[riot_id]
@@ -53,9 +57,12 @@ async def update_matches_loop():
 
         kda = None
         if riot_id not in most_recent_matches or most_recent_matches[riot_id] != match_id:
-            kda = get_kda_from_most_recent_match(puuid, match_id)
+            match_data = seen_matches[match_id] if match_id in seen_matches else get_match(match_id)
+            kda = get_kda_from_most_recent_match(puuid, match_data, match_id)
             if kda is None:
                 logger.warning(f"Failed to get KDA for {riot_id}")
+            
+            seen_matches[match_id] = match_data
 
         if kda:
             print(f"Found a new KDA for {riot_id}")

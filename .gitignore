@@ -18,3 +18,5 @@ __pycache__/
 # because the file on the Pi will actually have the most recent matches
 # and this one won't
 most_recent_matches.json
+
+test.json
