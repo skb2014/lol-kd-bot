@@ -46,15 +46,19 @@ def get_kda_from_most_recent_match(puuid, match_id):
         return None
     if match_id is None:
         print("No match ID entered, returning None")
+        
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}?api_key={riot_api_key}"
     response = requests.get(url)
     if response_checker(response):
-        player_index = response.json()['metadata']['participants'].index(puuid)
-        player_data = response.json()['info']['participants'][player_index]
-        kills = player_data['kills']
-        deaths = player_data['deaths']
-        assists = player_data['assists']
-        return {'kills': kills, 'deaths': deaths, 'assists': assists}
+        res = response.json()
+        player_index = res['metadata']['participants'].index(puuid)
+        player_data = res['info']['participants'][player_index]
+        return {
+            'kills': player_data['kills'], 
+            'deaths': player_data['deaths'], 
+            'assists': player_data['assists'], 
+            'lost': player_data['nexusLost'],
+        }
     else:
         print("Failed to get response from riot/match/v5/matches/")
         return None

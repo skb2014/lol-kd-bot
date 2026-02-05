@@ -22,8 +22,9 @@ logger.addHandler(handler)
 
 async def print_match_kda(riot_id, kda):
     """Prints the Riot ID and KDA in each of the given discord channels."""
+    result = "lost" if kda["nexusLost"] else "won"
     for channel in channels:
-        await channel.send(f'{riot_id} has just played a game! KDA: {kda["kills"]}/{kda["deaths"]}/{kda["assists"]}')
+        await channel.send(f'{riot_id} has just {result} a game! KDA: {kda["kills"]}/{kda["deaths"]}/{kda["assists"]}')
 
 @tasks.loop(seconds=30)
 async def update_matches_loop():
@@ -51,14 +52,11 @@ async def update_matches_loop():
             continue
 
         kda = None
-        if riot_id not in most_recent_matches:
+        if riot_id not in most_recent_matches or most_recent_matches[riot_id] != match_id:
             kda = get_kda_from_most_recent_match(puuid, match_id)
             if kda is None:
                 logger.warning(f"Failed to get KDA for {riot_id}")
-        elif most_recent_matches[riot_id] != match_id:
-            kda = get_kda_from_most_recent_match(puuid, match_id)
-            if kda is None:
-                logger.warning(f"Failed to get KDA for {riot_id}")
+
         if kda:
             print(f"Found a new KDA for {riot_id}")
             await print_match_kda(riot_id, kda)
