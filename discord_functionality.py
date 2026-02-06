@@ -3,12 +3,14 @@ from discord.ext import commands, tasks
 from riot_functionality import *
 import json
 import logging
+from groq import AsyncGroq
 
 load_dotenv()
 guild_ids = list(map(int, getenv('DISCORD_GUILD_IDS').split(',')))
 channel_ids = list(map(int, getenv('DISCORD_CHANNEL_IDS').split(',')))
 guilds = []
 channels = []
+client = AsyncGroq(api_key=getenv('GROQ_API_KEY'))
 
 with open("puuids.json") as f:
     puuids = json.load(f)
@@ -93,4 +95,49 @@ async def on_ready():
     except Exception as e:
         print(f'Failed to sync commands: {e}')
     update_matches_loop.start()
+
+@bot.event
+async def on_message(message):
+    # ping the bot to get AI responses
+    # ignore messages sent by the bot itself to avoid infinite loops
+    if message.author == bot.user:
+        return
+
+    # if you ping the bot, it will respond
+    if bot.user.mentioned_in(message):
+        # clean the message: remove the <@ID> mention and leading/trailing whitespace
+        user_query = message.content.replace(f'<@{bot.user.id}>', '').strip()
+
+        if not user_query:
+            await message.channel.send(f"what do you want {message.author.mention}")
+            return
+
+        # uses a typing indicator so users know the AI is thinking
+        async with message.channel.typing():
+            try:
+                chat_completion = await client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {"role": "system",
+                         "content": """You are a discord bot whose role is to analyze match data and determine
+                         whether specificied players are playing "winning league" (i.e., they are contributing
+                         in a useful manner), or "losing league" (i.e., actively detrimental to the team )."""},
+                        {"role": "user", "content": user_query}
+                    ],
+                    max_completion_tokens=512  # approximately 2k characters to not run into the message character limit
+                )
+
+                response_text = chat_completion.choices[0].message.content
+                # safety slice for discord's 2000 character limit for messages
+                while len(response_text) > 1990:
+                    remainder_text = response_text[1990:]
+                    message.channel.send(response_text[:1990] + "...")
+                    # TODO: perhaps this should be a reply chain
+                    response_text = remainder_text
+                    
+            except Exception as e:
+                await message.channel.send(f"Error: {e}")
+
+    # lets the bot process other commands? idk if it's necessary since there are no text (non-slash) commands yet
+    await bot.process_commands(message)
 

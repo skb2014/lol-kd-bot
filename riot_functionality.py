@@ -7,10 +7,14 @@ riot_api_key = getenv('RIOT_API_KEY')
 routing_region = getenv('ROUTING_REGION')
 riot_ids = getenv('RIOT_IDS').split(',')
 
-def response_checker(response):
-    """Checks the status code of a response and raises an exception if it's not 200"""
+def response_handler(response):
+    """Checks the status code of a response and raises an exception if it's not 200, which indicates a successful response"""
+    response_code_errors = {
+        400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 429: "Rate Limit Exceeded",
+        500: "Internal Server Error", 502: "Bad Gateway", 503: "Service Unavailable", 504: "Gateway Timeout"
+    }
     if response.status_code != 200:
-        print(f"Request failed with status code {response.status_code}, response text: {response.text}")
+        print(f"Request failed with status code {response.status_code} {response_code_errors[response.status_code]}, response text: {response.text}")
         return False
     else:
         return True
@@ -20,7 +24,7 @@ def get_puuid_from_riot_id(riot_id):
     game_name, tag_line = riot_id.split('#')
     url = f"https://{routing_region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{game_name}/{tag_line}?api_key={riot_api_key}"
     response = requests.get(url)
-    if response_checker(response):
+    if response_handler(response):
         return response.json()['puuid']
     else:
         print("Failed to get response from riot/account/v1/accounts/by-riot-id/")
@@ -33,7 +37,7 @@ def get_most_recent_match(puuid):
         return None
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?start=0&count=1&api_key={riot_api_key}"
     response = requests.get(url)
-    if response_checker(response):
+    if response_handler(response):
         return response.json()[0]
     else:
         print("Failed to get response from riot/account/v1/accounts/by-puuid/")
@@ -43,7 +47,7 @@ def get_match(match_id):
     print("Finding match data...")
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}?api_key={riot_api_key}"
     response = requests.get(url)
-    if response_checker(response):
+    if response_handler(response):
         return response.json()
 
     return "Failed to get response from match id endpoint"
