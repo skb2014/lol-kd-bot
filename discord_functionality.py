@@ -134,6 +134,7 @@ async def on_message(message):
                     message.channel.send(response_text[:1990] + "...")
                     # TODO: perhaps this should be a reply chain
                     response_text = remainder_text
+                message.channel.send(response_text)
                     
             except Exception as e:
                 await message.channel.send(f"Error: {e}")
