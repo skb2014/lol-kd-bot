@@ -1,7 +1,6 @@
 from discord_functionality import *
-from dotenv import load_dotenv
 
-load_dotenv()
+# load_dotenv() is already executed when importing riot_functionality
 discord_token = getenv('DISCORD_TOKEN')
 
 def main():

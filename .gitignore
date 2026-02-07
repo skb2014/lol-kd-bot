@@ -19,4 +19,7 @@ __pycache__/
 # and this one won't
 most_recent_matches.json
 
-test.json
+# I have a script for testing the bot which doesn't run the update matches loop
+# it doesn't actually matter if it gets pushed to the repo or not but considering it should never run on the Pi,
+# I don't want to push it
+testing.py

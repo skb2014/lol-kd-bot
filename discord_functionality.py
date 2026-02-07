@@ -5,12 +5,11 @@ import json
 import logging
 from groq import AsyncGroq
 
-load_dotenv()
 guild_ids = list(map(int, getenv('DISCORD_GUILD_IDS').split(',')))
 channel_ids = list(map(int, getenv('DISCORD_CHANNEL_IDS').split(',')))
 guilds = []
 channels = []
-client = AsyncGroq(api_key=getenv('GROQ_API_KEY'))
+async_groq_client = AsyncGroq(api_key=getenv('GROQ_API_KEY'))
 
 with open("puuids.json") as f:
     puuids = json.load(f)
@@ -19,6 +18,8 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
 bot = commands.Bot(command_prefix='!', intents=intents)
+# I want to be able to run the bot in a "testing" mode where it doesn't execute the update matches loop
+bot.is_testing = False
 
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 logger = logging.getLogger('Match Checker')
@@ -94,7 +95,8 @@ async def on_ready():
         print(f'Synced {len(synced)} command(s)')
     except Exception as e:
         print(f'Failed to sync commands: {e}')
-    update_matches_loop.start()
+    if not bot.is_testing:
+        update_matches_loop.start()
 
 @bot.event
 async def on_message(message):
@@ -115,7 +117,7 @@ async def on_message(message):
         # uses a typing indicator so users know the AI is thinking
         async with message.channel.typing():
             try:
-                chat_completion = await client.chat.completions.create(
+                chat_completion = await async_groq_client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=[
                         {"role": "system",
@@ -132,7 +134,7 @@ async def on_message(message):
                 while len(response_text) > 1990:
                     remainder_text = response_text[1990:]
                     await message.channel.send(response_text[:1990] + "...")
-                    # TODO: perhaps this should be a reply chain
+                    # !! perhaps this should be a reply chain
                     response_text = remainder_text
                 await message.channel.send(response_text)
                     
@@ -141,4 +143,3 @@ async def on_message(message):
 
     # lets the bot process other commands? idk if it's necessary since there are no text (non-slash) commands yet
     await bot.process_commands(message)
-
