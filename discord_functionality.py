@@ -46,10 +46,6 @@ async def on_message(message):
     # ignore messages sent by the bot itself to avoid infinite loops
     if message.author == bot.user:
         return
-    # anson doesn't get rights
-    if message.author.id == 312825670428393472:
-        await message.channel.send("stfu nerd")
-        return
 
     # the bot responds when you ping it
     if bot.user.mentioned_in(message):
