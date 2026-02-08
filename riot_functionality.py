@@ -1,6 +1,8 @@
 from os import getenv
 from dotenv import load_dotenv
+import json
 import aiohttp
+import aiofiles
 
 load_dotenv()
 riot_api_key = getenv('RIOT_API_KEY')
@@ -36,7 +38,7 @@ async def get_puuid_from_riot_id(riot_id):
             else:
                 return None
 
-async def get_most_recent_match(puuid):
+async def get_latest_match_id(puuid):
     """Gets the match ID of the most recent match that the player with the specified PUUID played"""
     if puuid is None:
         print("No PUUID entered, returning None")
@@ -51,9 +53,7 @@ async def get_most_recent_match(puuid):
                 print("Failed to get response from riot/account/v1/accounts/by-puuid/")
                 return None
 
-
-
-async def get_match(match_id):
+async def get_match_data(match_id):
     print("Finding match data...")
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}?api_key={riot_api_key}"
     async with aiohttp.ClientSession() as session:
@@ -65,27 +65,18 @@ async def get_match(match_id):
                 print("Failed to get response from match id endpoint")
                 return None
 
-
-    return "Failed to get response from match id endpoint"
-
-def get_kda_from_most_recent_match(puuid, match_data, match_id):
+async def get_kda_from_match(puuid, match_id):
     """Gets the KDA of the player with the specified PUUID in their most recent match, returned as a dictionary with keys 'kills', 'deaths', 'assists'"""
-    if puuid is None:
-        print("No PUUID entered, returning None")
-        return None
-    if match_data is None:
-        print("No match data entered, returning None")
-    if match_id is None:
-        print("No match ID entered, returning None")
-
+    async with aiofiles.open("matches.json", "r") as f:
+        content = await f.read()
+        matches = json.loads(content)
+    match_data = matches[match_id]
     player_index = match_data['metadata']['participants'].index(puuid)
     participants = match_data['info']['participants']
     player_data = participants[player_index]
-
     player_position = player_data['teamPosition']
     sidelane = player_position not in ["UTILITY", "JUNGLE", "MIDDLE"]
-    
-    sided = calc_weakside(participants, match_id, player_data["teamId"], player_position) if sidelane else ""
+    sided = await calc_weakside(participants, match_id, player_data["teamId"], player_position) if sidelane else ""
     return {
         'kills': player_data['kills'], 
         'deaths': player_data['deaths'], 
@@ -94,8 +85,7 @@ def get_kda_from_most_recent_match(puuid, match_data, match_id):
         'sided': sided
     }
 
-#
-def find_jungle_positions(participants, match_id, team_id):
+async def find_jungle_positions(participants, match_id, team_id):
     jungle_id = next(
         (p['puuid'] for p in participants if p['teamPosition'] == "JUNGLE" and p["teamId"] == team_id),
         None
@@ -106,8 +96,11 @@ def find_jungle_positions(participants, match_id, team_id):
     
     # print(jungle_id)
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}/timeline?api_key={riot_api_key}"
-    response = requests.get(url)
-    info = response.json()['info']
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response_handler(response):
+                data = await response.json()
+    info = data['info']
 
     players = info['participants']
     jg_participant_id = next(
@@ -124,8 +117,8 @@ def find_jungle_positions(participants, match_id, team_id):
         for frame in info['frames'][:21]
     ]
 
-def calc_weakside(participants, match_id, team_id, position):
-    positions = find_jungle_positions(participants, match_id, team_id)
+async def calc_weakside(participants, match_id, team_id, position):
+    positions = await find_jungle_positions(participants, match_id, team_id)
     if not positions:
         return None
     
