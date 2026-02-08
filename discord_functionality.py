@@ -3,12 +3,13 @@ from discord.ext import commands, tasks
 from riot_functionality import *
 import json
 import logging
+import aiofiles
 from groq import AsyncGroq
 
-guild_ids = list(map(int, getenv('DISCORD_GUILD_IDS').split(',')))
-channel_ids = list(map(int, getenv('DISCORD_CHANNEL_IDS').split(',')))
-guilds = []
-channels = []
+# guild_ids = list(map(int, getenv('DISCORD_GUILD_IDS').split(',')))
+# channel_ids = list(map(int, getenv('DISCORD_CHANNEL_IDS').split(',')))
+# guilds = []
+# channels = []
 async_groq_client = AsyncGroq(api_key=getenv('GROQ_API_KEY'))
 
 with open("puuids.json") as f:
@@ -17,6 +18,8 @@ with open("puuids.json") as f:
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
+intents.members = True
+
 bot = commands.Bot(command_prefix='!', intents=intents)
 # I want to be able to run the bot in a "testing" mode where it doesn't execute the update matches loop
 bot.is_testing = False
@@ -29,8 +32,8 @@ logger.addHandler(handler)
 async def print_match_kda(riot_id, kda):
     """Prints the Riot ID and KDA in each of the given discord channels."""
     result = "lost" if kda["lost"] else "won"
-    for channel in channels:
-        await channel.send(f'{riot_id} has just **{result}** a game. {kda['sided']}KDA: {kda["kills"]}/{kda["deaths"]}/{kda["assists"]}')
+    # for channel in channels:
+        # await channel.send(f'{riot_id} has just **{result}** a game. {kda['sided']} KDA: {kda["kills"]}/{kda["deaths"]}/{kda["assists"]}')
 
 @tasks.loop(seconds=30)
 async def update_matches_loop():
@@ -78,34 +81,37 @@ async def update_matches_loop():
         json.dump(most_recent_matches_updated, f, indent=4)
 
 @bot.event
-async def on_ready():
-    print(f'We have logged in as {bot.user}')
-    guilds.clear()
-    for guild_id in guild_ids:
-        guild = bot.get_guild(guild_id)
-        guilds.append(guild)
-        print(f'Added guild: {guild.name}')
-    channels.clear()
-    for channel_id in channel_ids:
-        channel = bot.get_channel(channel_id)
-        channels.append(channel)
-        print(f'Added channel: {channel.name}')
+async def setup_hook():
     try:
+        # right now, all the commands are global
+        # and they are syncing to the global cache,
+        # not any specific server
+        # it will take longer to update this way
         synced = await bot.tree.sync()  # Sync all slash commands
         print(f'Synced {len(synced)} command(s)')
     except Exception as e:
         print(f'Failed to sync commands: {e}')
+
+@bot.event
+async def on_ready():
+    print(f'Logged in as {bot.user}')
+    print(f'Connected to {len(bot.guilds)} server(s)')
     if not bot.is_testing:
         update_matches_loop.start()
 
 @bot.event
 async def on_message(message):
     # ping the bot to get AI responses
+
     # ignore messages sent by the bot itself to avoid infinite loops
     if message.author == bot.user:
         return
+    # anson doesn't get rights
+    if message.author.id == 312825670428393472:
+        await message.channel.send("stfu nerd")
+        return
 
-    # if you ping the bot, it will respond
+    # the bot responds when you ping it
     if bot.user.mentioned_in(message):
         # clean the message: remove the <@ID> mention and leading/trailing whitespace
         user_query = message.content.replace(f'<@{bot.user.id}>', '').strip()
@@ -143,3 +149,84 @@ async def on_message(message):
 
     # lets the bot process other commands? idk if it's necessary since there are no text (non-slash) commands yet
     await bot.process_commands(message)
+
+@bot.tree.command(name="register_channel", description="Registers this channel to the bot, allowing you to add players to be tracked")
+async def register_channel(interaction: discord.Interaction):
+    # JSON keys must be strings, not ints
+    new_channel_id = str(interaction.channel.id)
+    async with aiofiles.open("channels.json", "r") as f:
+        # json.loads() and json.dumps() are allegedly faster than json.load() and json.dump(),
+        # theoretically making them better in async functions even though they still are synchronous
+        # therefore, we read the file contents and then use json.loads() instead of json.load() on the file directly
+        content = await f.read()
+        channels = json.loads(content)
+    if new_channel_id in channels:
+        await interaction.response.send_message("This channel is already registered!")
+        return
+    else:
+        channels[new_channel_id] = []
+        async with aiofiles.open("channels.json", mode="w") as f:
+            # same thing, you can't json.dump(f) directly
+            await f.write(json.dumps(channels, indent=4))
+        await interaction.response.send_message("Channel registered successfully!")
+        return
+
+@bot.tree.command(name="remove_channel", description="Removes this channel from the bot's tracking, clearing tracked players from this channel in the process")
+async def remove_channel(interaction: discord.Interaction):
+    channel_id = str(interaction.channel.id)
+    async with aiofiles.open("channels.json", "r") as f:
+        content = await f.read()
+        channels = json.loads(content)
+    if channel_id not in channels:
+        await interaction.response.send_message("This channel is already not registered!")
+        return
+    else:
+        del channels[channel_id]
+        async with aiofiles.open("channels.json", mode="w") as f:
+            await f.write(json.dumps(channels, indent=4))
+        await interaction.response.send_message("Channel removed successfully!")
+        return
+
+@bot.tree.command(name="add_player", description="Adds a player to be tracked in this channel (channel must be registered")
+async def add_player(interaction: discord.Interaction, player_name: str):
+    channel_id = str(interaction.channel.id)
+    async with aiofiles.open("channels.json", "r") as f:
+        content = await f.read()
+        channels = json.loads(content)
+    if channel_id not in channels:
+        await interaction.response.send_message("This channel is not registered! Use /register_channel first!")
+
+    # need to make sure this is a real player by verifying that
+    puuid = get_puuid_from_riot_id(player_name)
+    if puuid is None:
+        await interaction.response.send_message(f"Player {player_name} not found!")
+    if player_name in channels[channel_id]:
+        await interaction.response.send_message(f"Player {player_name} is already being tracked in this channel!")
+        return
+    else:
+        channels[channel_id].append(player_name)
+        print(f"Adding {player_name} to {channel_id}")
+
+    async with aiofiles.open("channels.json", mode="w") as f:
+        await f.write(json.dumps(channels, indent=4))
+    await interaction.response.send_message(f"{player_name} added successfully!")
+
+@bot.tree.command(name="remove_player", description="Removes a player from being tracked in this channel (channel must be registered")
+async def remove_player(interaction: discord.Interaction, player_name: str):
+    channel_id = str(interaction.channel.id)
+    async with aiofiles.open("channels.json", "r") as f:
+        content = await f.read()
+        channels = json.loads(content)
+    if channel_id not in channels:
+        await interaction.response.send_message("This channel is not registered! Use /register_channel first!")
+
+    if player_name not in channels[channel_id]:
+        await interaction.response.send_message(f"Player {player_name} is already not being tracked in this channel!")
+        return
+    else:
+        channels[channel_id].remove(player_name)
+        print(f"Removing {player_name} from {channel_id}")
+
+    async with aiofiles.open("channels.json", mode="w") as f:
+        await f.write(json.dumps(channels, indent=4))
+    await interaction.response.send_message(f"{player_name} removed successfully!")

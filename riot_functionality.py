@@ -1,6 +1,6 @@
 from os import getenv
 from dotenv import load_dotenv
-import requests
+import aiohttp
 
 load_dotenv()
 riot_api_key = getenv('RIOT_API_KEY')
@@ -19,18 +19,20 @@ def response_handler(response):
     else:
         return True
 
-def get_puuid_from_riot_id(riot_id):
+async def get_puuid_from_riot_id(riot_id):
     """Gets the unique PUUID for an account using their Riot ID which looks like GameName#TagLine"""
     game_name, tag_line = riot_id.split('#')
     url = f"https://{routing_region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{game_name}/{tag_line}?api_key={riot_api_key}"
-    response = requests.get(url)
-    if response_handler(response):
-        return response.json()['puuid']
-    else:
-        print("Failed to get response from riot/account/v1/accounts/by-riot-id/")
-        return None
+    # We use a context manager for the session -- idk what this is but the AI said so
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response_handler(response):
+                data = await response.json()
+                return data['puuid']
+            else:
+                return None
 
-def get_most_recent_match(puuid):
+async def get_most_recent_match(puuid):
     """Gets the match ID of the most recent match that the player with the specified PUUID played"""
     if puuid is None:
         print("No PUUID entered, returning None")
@@ -42,6 +44,7 @@ def get_most_recent_match(puuid):
     else:
         print("Failed to get response from riot/account/v1/accounts/by-puuid/")
         return None
+
 
 def get_match(match_id):
     print("Finding match data...")
