@@ -150,8 +150,8 @@ async def on_message(message):
     # lets the bot process other commands? idk if it's necessary since there are no text (non-slash) commands yet
     await bot.process_commands(message)
 
-@bot.tree.command(name="register_channel", description="Registers this channel to the bot, allowing you to add players to be tracked")
-async def register_channel(interaction: discord.Interaction):
+@bot.tree.command(name="add_channel", description="Registers this channel to the bot, allowing you to add players to be tracked")
+async def add_channel(interaction: discord.Interaction):
     # JSON keys must be strings, not ints
     new_channel_id = str(interaction.channel.id)
     async with aiofiles.open("channels.json", "r") as f:
@@ -171,7 +171,7 @@ async def register_channel(interaction: discord.Interaction):
         await interaction.response.send_message("Channel registered successfully!")
         return
 
-@bot.tree.command(name="remove_channel", description="Removes this channel from the bot's tracking, clearing tracked players from this channel in the process")
+@bot.tree.command(name="remove_channel", description="Removes this channel from tracking, clearing all players")
 async def remove_channel(interaction: discord.Interaction):
     channel_id = str(interaction.channel.id)
     async with aiofiles.open("channels.json", "r") as f:
@@ -196,8 +196,8 @@ async def add_player(interaction: discord.Interaction, player_name: str):
     if channel_id not in channels:
         await interaction.response.send_message("This channel is not registered! Use /register_channel first!")
 
-    # need to make sure this is a real player by verifying that
-    puuid = get_puuid_from_riot_id(player_name)
+    # need to make sure this is a real player by verifying that it has a PUUID
+    puuid = await get_puuid_from_riot_id(player_name)
     if puuid is None:
         await interaction.response.send_message(f"Player {player_name} not found!")
     if player_name in channels[channel_id]:
@@ -211,7 +211,7 @@ async def add_player(interaction: discord.Interaction, player_name: str):
         await f.write(json.dumps(channels, indent=4))
     await interaction.response.send_message(f"{player_name} added successfully!")
 
-@bot.tree.command(name="remove_player", description="Removes a player from being tracked in this channel (channel must be registered")
+@bot.tree.command(name="remove_player", description="Removes a player from being tracked in this channel (channel must be registered)")
 async def remove_player(interaction: discord.Interaction, player_name: str):
     channel_id = str(interaction.channel.id)
     async with aiofiles.open("channels.json", "r") as f:

@@ -13,15 +13,19 @@ def response_handler(response):
         400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 429: "Rate Limit Exceeded",
         500: "Internal Server Error", 502: "Bad Gateway", 503: "Service Unavailable", 504: "Gateway Timeout"
     }
-    if response.status_code != 200:
-        print(f"Request failed with status code {response.status_code} {response_code_errors[response.status_code]}, response text: {response.text}")
+    if response.status != 200:
+        print(f"Request failed with status code {response.status} {response_code_errors[response.status]}, response text: {response.text}")
         return False
     else:
         return True
 
 async def get_puuid_from_riot_id(riot_id):
     """Gets the unique PUUID for an account using their Riot ID which looks like GameName#TagLine"""
-    game_name, tag_line = riot_id.split('#')
+    if len(riot_id.split('#')) == 2:
+        game_name, tag_line = riot_id.split('#')
+    else:
+        print("Invalid Riot ID format, should be GameName#TagLine")
+        return None
     url = f"https://{routing_region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{game_name}/{tag_line}?api_key={riot_api_key}"
     # this code is asyncable (unlike requests -- in theory)
     async with aiohttp.ClientSession() as session:
