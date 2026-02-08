@@ -179,6 +179,9 @@ async def remove_channel(interaction: discord.Interaction):
     if channel_id not in channels:
         await interaction.response.send_message("This channel is already not registered!")
         return
+
+    for player_name in channels[channel_id]["players"]:
+        await add_or_remove_player_from_files("remove", player_name, channel_id)
     # del might be more dangerous, so pop is used instead
     channels.pop(channel_id)
     async with aiofiles.open("channels.json", mode="w") as f:
