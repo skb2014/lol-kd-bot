@@ -23,7 +23,7 @@ async def get_puuid_from_riot_id(riot_id):
     """Gets the unique PUUID for an account using their Riot ID which looks like GameName#TagLine"""
     game_name, tag_line = riot_id.split('#')
     url = f"https://{routing_region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{game_name}/{tag_line}?api_key={riot_api_key}"
-    # We use a context manager for the session -- idk what this is but the AI said so
+    # this code is asyncable (unlike requests -- in theory)
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             if response_handler(response):
@@ -38,20 +38,29 @@ async def get_most_recent_match(puuid):
         print("No PUUID entered, returning None")
         return None
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?start=0&count=1&api_key={riot_api_key}"
-    response = requests.get(url)
-    if response_handler(response):
-        return response.json()[0]
-    else:
-        print("Failed to get response from riot/account/v1/accounts/by-puuid/")
-        return None
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response_handler(response):
+                data = await response.json()
+                return data[0]
+            else:
+                print("Failed to get response from riot/account/v1/accounts/by-puuid/")
+                return None
 
 
-def get_match(match_id):
+
+async def get_match(match_id):
     print("Finding match data...")
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}?api_key={riot_api_key}"
-    response = requests.get(url)
-    if response_handler(response):
-        return response.json()
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response_handler(response):
+                data = await response.json()
+                return data
+            else:
+                print("Failed to get response from match id endpoint")
+                return None
+
 
     return "Failed to get response from match id endpoint"
 
@@ -81,7 +90,7 @@ def get_kda_from_most_recent_match(puuid, match_data, match_id):
         'sided': sided
     }
 
-
+#
 def find_jungle_positions(participants, match_id, team_id):
     jungle_id = next(
         (p['puuid'] for p in participants if p['teamPosition'] == "JUNGLE" and p["teamId"] == team_id),
