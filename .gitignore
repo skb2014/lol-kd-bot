@@ -14,10 +14,8 @@ venv/
 # local folder that python might create
 __pycache__/
 
-# also don't want to push the most_recent_matches file
-# because the file on the Pi will actually have the most recent matches
-# and this one won't
-most_recent_matches.json
+# for now, all data is stored locally
+*.json
 
 # I have a script for testing the bot which doesn't run the update matches loop
 # it doesn't actually matter if it gets pushed to the repo or not but considering it should never run on the Pi,
