@@ -163,13 +163,12 @@ async def add_channel(interaction: discord.Interaction):
     if new_channel_id in channels:
         await interaction.response.send_message("This channel is already registered!")
         return
-    else:
-        channels[new_channel_id] = []
-        async with aiofiles.open("channels.json", mode="w") as f:
-            # same thing, you can't json.dump(f) directly
-            await f.write(json.dumps(channels, indent=4))
-        await interaction.response.send_message("Channel registered successfully!")
-        return
+    channels[new_channel_id] = {"players": []}
+    async with aiofiles.open("channels.json", mode="w") as f:
+        # same thing, you can't json.dump(f) directly
+        await f.write(json.dumps(channels, indent=4))
+    await interaction.response.send_message("Channel registered successfully!")
+    return
 
 @bot.tree.command(name="remove_channel", description="Removes this channel from tracking, clearing all players")
 async def remove_channel(interaction: discord.Interaction):
@@ -180,53 +179,68 @@ async def remove_channel(interaction: discord.Interaction):
     if channel_id not in channels:
         await interaction.response.send_message("This channel is already not registered!")
         return
+    # del might be more dangerous, so pop is used instead
+    channels.pop(channel_id)
+    async with aiofiles.open("channels.json", mode="w") as f:
+        await f.write(json.dumps(channels, indent=4))
+    await interaction.response.send_message("Channel removed successfully!")
+    return
+
+async def add_or_remove_player_from_files(add_or_remove, player_name, channel_id) -> str:
+    """Returns a string that states the result of the operation"""
+    if not add_or_remove in ["add", "remove"]:
+        return "Invalid operation!"
+
+    async with aiofiles.open("channels.json", "r") as f:
+        content = await f.read()
+        channels = json.loads(content)
+    async with aiofiles.open("players.json", mode="r") as f:
+        content = await f.read()
+        players = json.loads(content)
+
+    if channel_id not in channels:
+        return "Channel not registered!"
+    if add_or_remove == "add":
+        if player_name in channels[channel_id]["players"]:
+            return "Player already registered in this channel!"
+        # need to check that the player is real by verifying that it has a PUUID
+        puuid = await get_puuid_from_riot_id(player_name)
+        if puuid is None:
+            return f"Player {player_name} not found!"
+
+        channels[channel_id]["players"].append(player_name)
+        # if the player isn't already in the players.json file, add them
+        if player_name not in players:
+            players[player_name] = {"puuid": puuid, "channels": [channel_id]}
+        else:
+            players[player_name]["channels"].append(channel_id)
     else:
-        del channels[channel_id]
-        async with aiofiles.open("channels.json", mode="w") as f:
-            await f.write(json.dumps(channels, indent=4))
-        await interaction.response.send_message("Channel removed successfully!")
-        return
+        if player_name not in channels[channel_id]["players"]:
+            return "Player already not registered in this channel!"
+
+        channels[channel_id]["players"].remove(player_name)
+        players[player_name]["channels"].remove(channel_id)
+        # if the player doesn't exist in any channels, delete them
+        if not players[player_name]["channels"]:
+            players.pop(player_name)
+
+    async with aiofiles.open("channels.json", mode="w") as f:
+        await f.write(json.dumps(channels, indent=4))
+    async with aiofiles.open("players.json", mode="w") as f:
+        await f.write(json.dumps(players, indent=4))
+    if add_or_remove == "add":
+        return f"{player_name} added successfully!"
+    else:
+        return f"{player_name} removed successfully!"
 
 @bot.tree.command(name="add_player", description="Adds a player to be tracked in this channel (channel must be registered")
 async def add_player(interaction: discord.Interaction, player_name: str):
     channel_id = str(interaction.channel.id)
-    async with aiofiles.open("channels.json", "r") as f:
-        content = await f.read()
-        channels = json.loads(content)
-    if channel_id not in channels:
-        await interaction.response.send_message("This channel is not registered! Use /register_channel first!")
-
-    # need to make sure this is a real player by verifying that it has a PUUID
-    puuid = await get_puuid_from_riot_id(player_name)
-    if puuid is None:
-        await interaction.response.send_message(f"Player {player_name} not found!")
-    if player_name in channels[channel_id]:
-        await interaction.response.send_message(f"Player {player_name} is already being tracked in this channel!")
-        return
-    else:
-        channels[channel_id].append(player_name)
-        print(f"Adding {player_name} to {channel_id}")
-
-    async with aiofiles.open("channels.json", mode="w") as f:
-        await f.write(json.dumps(channels, indent=4))
-    await interaction.response.send_message(f"{player_name} added successfully!")
+    result = await add_or_remove_player_from_files("add", player_name, channel_id)
+    await interaction.response.send_message(result)
 
 @bot.tree.command(name="remove_player", description="Removes a player from being tracked in this channel (channel must be registered)")
 async def remove_player(interaction: discord.Interaction, player_name: str):
     channel_id = str(interaction.channel.id)
-    async with aiofiles.open("channels.json", "r") as f:
-        content = await f.read()
-        channels = json.loads(content)
-    if channel_id not in channels:
-        await interaction.response.send_message("This channel is not registered! Use /register_channel first!")
-
-    if player_name not in channels[channel_id]:
-        await interaction.response.send_message(f"Player {player_name} is already not being tracked in this channel!")
-        return
-    else:
-        channels[channel_id].remove(player_name)
-        print(f"Removing {player_name} from {channel_id}")
-
-    async with aiofiles.open("channels.json", mode="w") as f:
-        await f.write(json.dumps(channels, indent=4))
-    await interaction.response.send_message(f"{player_name} removed successfully!")
+    result = await add_or_remove_player_from_files("remove", player_name, channel_id)
+    await interaction.response.send_message(result)
