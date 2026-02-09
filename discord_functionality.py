@@ -241,32 +241,30 @@ async def update_matches_loop():
     async with aiofiles.open("players.json", mode="r") as f:
         content = await f.read()
         players = json.loads(content)
+    async with aiofiles.open("matches.json", mode="r") as f:
+        content = await f.read()
+        matches = json.loads(content)
     old_match_ids = set()
+    for match_id in matches:
+        old_match_ids.add(match_id)
     new_match_ids = set()
     players_with_new_matches = dict()
     for player_name in players.keys():
-        old_match_id = players[player_name]["most_recent_match_id"]
-        if old_match_id is not None:
-            old_match_ids.add(old_match_id)
         new_match_id = await get_latest_match_id(players[player_name]["puuid"])
         new_match_ids.add(new_match_id)
-        if new_match_id != old_match_id:
+        if new_match_id != players[player_name]["most_recent_match_id"]:
             players[player_name]["most_recent_match_id"] = new_match_id
             players_with_new_matches[player_name] = new_match_id
-
     async with aiofiles.open("players.json", mode="w") as f:
         await f.write(json.dumps(players, indent=4))
 
     match_ids_to_be_deleted = old_match_ids - new_match_ids
     match_ids_to_be_added = new_match_ids - old_match_ids
-    async with aiofiles.open("matches.json", "r") as f:
-        content = await f.read()
-        matches = json.loads(content)
-        for match_id in match_ids_to_be_deleted:
-            matches.pop(match_id)
-        for match_id in match_ids_to_be_added:
-            match_data = await get_match_data(match_id)
-            matches[match_id] = match_data
+    for match_id in match_ids_to_be_deleted:
+        matches.pop(match_id)
+    for match_id in match_ids_to_be_added:
+        match_data = await get_match_data(match_id)
+        matches[match_id] = match_data
     async with aiofiles.open("matches.json", mode="w") as f:
         await f.write(json.dumps(matches, indent=4))
 
