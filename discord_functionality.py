@@ -76,9 +76,9 @@ async def on_message(message):
 
                 response_text = chat_completion.choices[0].message.content
                 # safety slice for discord's 2000 character limit for messages
-                while len(response_text) > 1990:
-                    remainder_text = response_text[1990:]
-                    await message.channel.send(response_text[:1990] + "...(continued)")
+                while len(response_text) > 1985:
+                    remainder_text = response_text[1985:]
+                    await message.channel.send(response_text[:1985] + " ...(cont.)")
                     # !! perhaps this should be a reply chain
                     response_text = remainder_text
                 await message.channel.send(response_text)
@@ -209,7 +209,6 @@ async def remove_player(interaction: discord.Interaction, player_name: str):
     result = await add_or_remove_player_from_files("remove", player_name, channel_id)
     await interaction.response.send_message(result)
 
-
 async def print_match_kda(channel_id, player_name, match_id):
     async with aiofiles.open("players.json", mode="r") as f:
         content = await f.read()
@@ -219,7 +218,6 @@ async def print_match_kda(channel_id, player_name, match_id):
     result = "lost" if kda["lost"] else "won"
     channel = bot.get_channel(int(channel_id))
     await channel.send(f"**{player_name}** just **{result}** a game. {kda["sided"]} KDA: {kda["kills"]}/{kda["deaths"]}/{kda["assists"]}")
-
 
 @tasks.loop(seconds=30)
 async def update_matches_loop():
