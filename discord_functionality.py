@@ -49,6 +49,9 @@ async def on_message(message):
 
     # the bot responds when you ping it
     if bot.user.mentioned_in(message):
+        # first determine if it's a direct ping or a reply to a previous bot message
+        if message.reference:
+            pass
         # clean the message: remove the <@ID> mention and leading/trailing whitespace
         user_query = message.content.replace(f'<@{bot.user.id}>', '').strip()
 
@@ -75,7 +78,7 @@ async def on_message(message):
                 # safety slice for discord's 2000 character limit for messages
                 while len(response_text) > 1990:
                     remainder_text = response_text[1990:]
-                    await message.channel.send(response_text[:1990] + "...")
+                    await message.channel.send(response_text[:1990] + "...(continued)")
                     # !! perhaps this should be a reply chain
                     response_text = remainder_text
                 await message.channel.send(response_text)
@@ -124,6 +127,22 @@ async def remove_channel(interaction: discord.Interaction):
         await f.write(json.dumps(channels, indent=4))
     await interaction.response.send_message("Channel removed successfully!")
     return
+
+@bot.tree.command(name="list_players", description="Lists all players currently being tracked in this channel")
+async def list_players(interaction: discord.Interaction):
+    channel_id = str(interaction.channel.id)
+    async with aiofiles.open("channels.json", "r") as f:
+        content = await f.read()
+        channels = json.loads(content)
+    if channel_id not in channels:
+        await interaction.response.send_message("This channel is not registered!")
+        return
+
+    index = 1
+    for player_name in channels[channel_id]["players"]:
+        await interaction.response.send_message(f"{index}. {player_name}")
+    if index == 1:
+        await interaction.response.send_message("No players are being tracked in this channel!")
 
 async def add_or_remove_player_from_files(add_or_remove, player_name, channel_id) -> str:
     """Returns a string that states the result of the operation"""
