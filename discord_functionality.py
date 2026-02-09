@@ -139,10 +139,16 @@ async def list_players(interaction: discord.Interaction):
         return
 
     index = 1
+    print_string = ""
     for player_name in channels[channel_id]["players"]:
-        await interaction.response.send_message(f"{index}. {player_name}")
+        print_string += f"{index}. {player_name}\n"
+        index += 1
     if index == 1:
         await interaction.response.send_message("No players are being tracked in this channel!")
+    else:
+        # delete the last newline character
+        print_string = print_string[:-1]
+        await interaction.response.send_message(print_string)
 
 async def add_or_remove_player_from_files(add_or_remove, player_name, channel_id) -> str:
     """Returns a string that states the result of the operation"""
