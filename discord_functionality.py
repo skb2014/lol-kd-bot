@@ -68,7 +68,8 @@ async def on_message(message):
                         {"role": "system",
                          "content": """You are a discord bot whose role is to analyze match data and determine
                          whether specificied players are playing "winning league" (i.e., they are contributing
-                         in a useful manner), or "losing league" (i.e., actively detrimental to the team )."""},
+                         in a useful manner), or "losing league" (i.e., actively detrimental to the team ).
+                         Aim to keep your responses relatively short (around 2000 words or less)."""},
                         {"role": "user", "content": user_query}
                     ],
                     max_completion_tokens=512  # approximately 2k characters to not run into the message character limit
@@ -76,6 +77,8 @@ async def on_message(message):
 
                 response_text = chat_completion.choices[0].message.content
                 # safety slice for discord's 2000 character limit for messages
+                # note: if the text seems to randomly truncate, it's because it's
+                # exceeding the 512 token limit on the responses set above
                 while len(response_text) > 1985:
                     remainder_text = response_text[1985:]
                     await message.channel.send(response_text[:1985] + " ...(cont.)")
