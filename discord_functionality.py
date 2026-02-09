@@ -212,6 +212,16 @@ async def remove_player(interaction: discord.Interaction, player_name: str):
     result = await add_or_remove_player_from_files("remove", player_name, channel_id)
     await interaction.response.send_message(result)
 
+@bot.tree.command(name="clear_all_data", description="Clears all data stored by the bot, including players and matches")
+async def clear_all_data(interaction: discord.Interaction):
+    async with aiofiles.open("channels.json", mode="w") as f:
+        await f.write("{}")
+    async with aiofiles.open("players.json", mode="w") as f:
+        await f.write("{}")
+    async with aiofiles.open("matches.json", mode="w") as f:
+        await f.write("{}")
+    await interaction.response.send_message("All data cleared successfully!")
+
 async def print_match_kda(channel_id, player_name, match_id):
     async with aiofiles.open("players.json", mode="r") as f:
         content = await f.read()
