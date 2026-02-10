@@ -222,6 +222,13 @@ async def clear_all_data(interaction: discord.Interaction):
         await f.write("{}")
     await interaction.response.send_message("All data cleared successfully!")
 
+@bot.tree.command(name="investigate_player", description="Checks player's most recent game to determine winning/losing league")
+async def investigate_player(interaction: discord.Interaction, player_name: str):
+    pass
+
+
+
+
 async def print_match_kda(channel_id, player_name, match_id):
     async with aiofiles.open("players.json", mode="r") as f:
         content = await f.read()
