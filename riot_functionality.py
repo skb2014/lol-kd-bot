@@ -14,6 +14,9 @@ async def read_json_file(filename):
     try:
         async with aiofiles.open(filename, mode="r") as f:
             content = await f.read()
+            # json.loads() and json.dumps() are allegedly faster than json.load() and json.dump(),
+            # theoretically making them better in async functions even though they still are synchronous
+            # therefore, we read the file contents and then use json.loads() instead of json.load() on the file directly
             return json.loads(content)
     except FileNotFoundError:
         print(f"Warning: {filename} not found. Returning empty dict.")
@@ -25,6 +28,7 @@ async def read_json_file(filename):
 async def write_json_file(filename, data):
     """Safely writes a dictionary to a JSON file."""
     async with aiofiles.open(filename, mode="w") as f:
+        # same thing, you can't json.dump(f) directly
         await f.write(json.dumps(data, indent=4))
     # if there is no data, write an empty dictionary
     if not data:
@@ -54,14 +58,8 @@ async def get_puuid_from_riot_id(riot_id):
         print("Invalid Riot ID format, should be GameName#TagLine")
         return None
     url = f"https://{routing_region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{game_name}/{tag_line}?api_key={riot_api_key}"
-    # this code is asyncable (unlike requests -- in theory)
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response_handler(response):
-                data = await response.json()
-                return data['puuid']
-            else:
-                return None
+    data = await get_http_response(url)
+    return data["puuid"] if data else None
 
 async def get_latest_match_id(puuid):
     """Gets the match ID of the most recent match that the player with the specified PUUID played"""
@@ -69,32 +67,18 @@ async def get_latest_match_id(puuid):
         print("No PUUID entered, returning None")
         return None
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?start=0&count=1&api_key={riot_api_key}"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response_handler(response):
-                data = await response.json()
-                return data[0]
-            else:
-                print("Failed to get response from riot/account/v1/accounts/by-puuid/")
-                return None
+    data = await get_http_response(url)
+    return data[0] if data else None
 
 async def get_match_data(match_id):
     print("Finding match data...")
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}?api_key={riot_api_key}"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response_handler(response):
-                data = await response.json()
-                return data
-            else:
-                print("Failed to get response from match id endpoint")
-                return None
+    data = await get_http_response(url)
+    return data   # data will already be None if the request fails
 
 async def get_kda_from_match(puuid, match_id):
     """Gets the KDA of the player with the specified PUUID in their most recent match, returned as a dictionary with keys 'kills', 'deaths', 'assists'"""
-    async with aiofiles.open("matches.json", "r") as f:
-        content = await f.read()
-        matches = json.loads(content)
+    matches = await read_json_file("matches.json")
     match_data = matches[match_id]
     player_index = match_data['metadata']['participants'].index(puuid)
     participants = match_data['info']['participants']
@@ -121,11 +105,8 @@ async def find_jungle_positions(participants, match_id, team_id):
     
     # print(jungle_id)
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}/timeline?api_key={riot_api_key}"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            if response_handler(response):
-                data = await response.json()
-    info = data['info']
+    data = await get_http_response(url)
+    info = data['info']  # NEED ERROR HANDLING HERE (IF REQUEST FAILS)
 
     players = info['participants']
     jg_participant_id = next(

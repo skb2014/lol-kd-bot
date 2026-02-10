@@ -95,29 +95,20 @@ async def on_message(message):
 @bot.tree.command(name="add_channel", description="Registers this channel to the bot, allowing you to add players to be tracked")
 async def add_channel(interaction: discord.Interaction):
     # JSON keys must be strings, not ints
-    new_channel_id = str(interaction.channel.id)
-    async with aiofiles.open("channels.json", "r") as f:
-        # json.loads() and json.dumps() are allegedly faster than json.load() and json.dump(),
-        # theoretically making them better in async functions even though they still are synchronous
-        # therefore, we read the file contents and then use json.loads() instead of json.load() on the file directly
-        content = await f.read()
-        channels = json.loads(content)
-    if new_channel_id in channels:
+    channel_id = str(interaction.channel.id)
+    channels = await read_json_file("channels.json")
+    if channel_id in channels:
         await interaction.response.send_message("This channel is already registered!")
         return
-    channels[new_channel_id] = {"players": []}
-    async with aiofiles.open("channels.json", mode="w") as f:
-        # same thing, you can't json.dump(f) directly
-        await f.write(json.dumps(channels, indent=4))
+    channels[channel_id] = {"players": []}
+    await write_json_file("channels.json", channels)
     await interaction.response.send_message("Channel registered successfully!")
     return
 
 @bot.tree.command(name="remove_channel", description="Removes this channel from tracking, clearing all players")
 async def remove_channel(interaction: discord.Interaction):
     channel_id = str(interaction.channel.id)
-    async with aiofiles.open("channels.json", "r") as f:
-        content = await f.read()
-        channels = json.loads(content)
+    channels = read_json_file("channels.json")
     if channel_id not in channels:
         await interaction.response.send_message("This channel is already not registered!")
         return
@@ -126,17 +117,14 @@ async def remove_channel(interaction: discord.Interaction):
         await add_or_remove_player_from_files("remove", player_name, channel_id)
     # del might be more dangerous, so pop is used instead
     channels.pop(channel_id)
-    async with aiofiles.open("channels.json", mode="w") as f:
-        await f.write(json.dumps(channels, indent=4))
+    await write_json_file("channels.json", channels)
     await interaction.response.send_message("Channel removed successfully!")
     return
 
 @bot.tree.command(name="list_players", description="Lists all players currently being tracked in this channel")
 async def list_players(interaction: discord.Interaction):
     channel_id = str(interaction.channel.id)
-    async with aiofiles.open("channels.json", "r") as f:
-        content = await f.read()
-        channels = json.loads(content)
+    channels = await read_json_file("channels.json")
     if channel_id not in channels:
         await interaction.response.send_message("This channel is not registered!")
         return
@@ -158,13 +146,8 @@ async def add_or_remove_player_from_files(add_or_remove, player_name, channel_id
     if not add_or_remove in ["add", "remove"]:
         return "Invalid operation!"
 
-    async with aiofiles.open("channels.json", "r") as f:
-        content = await f.read()
-        channels = json.loads(content)
-    async with aiofiles.open("players.json", mode="r") as f:
-        content = await f.read()
-        players = json.loads(content)
-
+    channels = await read_json_file("channels.json")
+    players = await read_json_file("players.json")
     if channel_id not in channels:
         return "Channel not registered!"
     if add_or_remove == "add":
@@ -191,10 +174,8 @@ async def add_or_remove_player_from_files(add_or_remove, player_name, channel_id
         if not players[player_name]["channels"]:
             players.pop(player_name)
 
-    async with aiofiles.open("channels.json", mode="w") as f:
-        await f.write(json.dumps(channels, indent=4))
-    async with aiofiles.open("players.json", mode="w") as f:
-        await f.write(json.dumps(players, indent=4))
+    await write_json_file("channels.json", channels)
+    await write_json_file("players.json", players)
     if add_or_remove == "add":
         return f"{player_name} added successfully!"
     else:
@@ -214,25 +195,17 @@ async def remove_player(interaction: discord.Interaction, player_name: str):
 
 @bot.tree.command(name="clear_all_data", description="Clears all data stored by the bot, including players and matches")
 async def clear_all_data(interaction: discord.Interaction):
-    async with aiofiles.open("channels.json", mode="w") as f:
-        await f.write("{}")
-    async with aiofiles.open("players.json", mode="w") as f:
-        await f.write("{}")
-    async with aiofiles.open("matches.json", mode="w") as f:
-        await f.write("{}")
+    await write_json_file("channels.json", {})
+    await write_json_file("players.json", {})
+    await write_json_file("matches.json", {})
     await interaction.response.send_message("All data cleared successfully!")
 
 @bot.tree.command(name="investigate_player", description="Checks player's most recent game to determine winning/losing league")
 async def investigate_player(interaction: discord.Interaction, player_name: str):
     pass
 
-
-
-
 async def print_match_kda(channel_id, player_name, match_id):
-    async with aiofiles.open("players.json", mode="r") as f:
-        content = await f.read()
-        players = json.loads(content)
+    players = await read_json_file("players.json")
     puuid = players[player_name]["puuid"]
     kda = await get_kda_from_match(puuid, match_id)
     result = "lost" if kda["lost"] else "won"
@@ -245,12 +218,8 @@ async def update_matches_loop():
     print("Checking for new matches...")
     logger.info("Checking for new matches...")
 
-    async with aiofiles.open("players.json", mode="r") as f:
-        content = await f.read()
-        players = json.loads(content)
-    async with aiofiles.open("matches.json", mode="r") as f:
-        content = await f.read()
-        matches = json.loads(content)
+    players = await read_json_file("players.json")
+    matches = await read_json_file("matches.json")
     old_match_ids = set()
     for match_id in matches:
         old_match_ids.add(match_id)
@@ -262,8 +231,7 @@ async def update_matches_loop():
         if new_match_id != players[player_name]["most_recent_match_id"]:
             players[player_name]["most_recent_match_id"] = new_match_id
             players_with_new_matches[player_name] = new_match_id
-    async with aiofiles.open("players.json", mode="w") as f:
-        await f.write(json.dumps(players, indent=4))
+    await write_json_file("players.json", players)
 
     match_ids_to_be_deleted = old_match_ids - new_match_ids
     match_ids_to_be_added = new_match_ids - old_match_ids
@@ -272,12 +240,9 @@ async def update_matches_loop():
     for match_id in match_ids_to_be_added:
         match_data = await get_match_data(match_id)
         matches[match_id] = match_data
-    async with aiofiles.open("matches.json", mode="w") as f:
-        await f.write(json.dumps(matches, indent=4))
+    await write_json_file("matches.json", matches)
 
-    async with aiofiles.open("channels.json", mode="r") as f:
-        content = await f.read()
-        channels = json.loads(content)
+    channels = await read_json_file("channels.json")
     for channel_id in channels:
         for player_name in channels[channel_id]["players"]:
             if player_name in players_with_new_matches:
