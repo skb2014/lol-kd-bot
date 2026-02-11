@@ -30,10 +30,11 @@ async def write_json_file(filename, data):
     async with aiofiles.open(filename, mode="w") as f:
         if data:
             # same thing, you can't json.dump(f) directly
-            await f.write(json.dumps(data, indent=4))
+            # also adding a new line character to make it look better when read in the terminal
+            await f.write(json.dumps(data, indent=4) + "\n")
         # if there is no data, write an empty dictionary
         else:
-            await f.write("{}")
+            await f.write("{}\n")
 
 async def get_http_response(url):
     """Sends a GET request to the specified URL and returns the response. Checks the status code as well."""
