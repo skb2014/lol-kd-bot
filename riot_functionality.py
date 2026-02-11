@@ -28,11 +28,12 @@ async def read_json_file(filename):
 async def write_json_file(filename, data):
     """Safely writes a dictionary to a JSON file."""
     async with aiofiles.open(filename, mode="w") as f:
-        # same thing, you can't json.dump(f) directly
-        await f.write(json.dumps(data, indent=4))
-    # if there is no data, write an empty dictionary
-    if not data:
-        await f.write("{}")
+        if data:
+            # same thing, you can't json.dump(f) directly
+            await f.write(json.dumps(data, indent=4))
+        # if there is no data, write an empty dictionary
+        else:
+            await f.write("{}")
 
 async def get_http_response(url):
     """Sends a GET request to the specified URL and returns the response. Checks the status code as well."""
