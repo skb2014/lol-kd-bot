@@ -11,7 +11,7 @@ async def get_puuid_from_riot_id(riot_id):
     if len(riot_id.split('#')) == 2:
         game_name, tag_line = riot_id.split('#')
     else:
-        logger.warning(f"{get_puuid_from_riot_id.__name__} -- Invalid Riot ID format: {riot_id}. Should be GameName#TagLine")
+        print_to_log("WARNING", f"Invalid Riot ID format: {riot_id}. Should be GameName#TagLine")
         print("Invalid Riot ID format, should be GameName#TagLine")
         return None
     url = f"https://{routing_region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{game_name}/{tag_line}?api_key={riot_api_key}"
@@ -19,7 +19,7 @@ async def get_puuid_from_riot_id(riot_id):
     if data:
         return data["puuid"]
     else:
-        logger.warning(f"{get_puuid_from_riot_id.__name__} -- Could not find PUUID for Riot ID: {riot_id}")
+        print_to_log("WARNING", f"Could not find PUUID for Riot ID: {riot_id}")
         return None
 
 async def get_latest_match_id(puuid):
@@ -32,7 +32,7 @@ async def get_latest_match_id(puuid):
     if data:
         return data[0]
     else:
-        logger.warning(f"{get_latest_match_id.__name__} -- Could not get matches for for PUUID: {puuid}")
+        print_to_log("WARNING", f"Could not get matches for for PUUID: {puuid}")
         return None
 
 async def get_match_data(match_id):
@@ -42,7 +42,7 @@ async def get_match_data(match_id):
     if data:
         return data
     else:
-        logger.warning(f"{get_match_data.__name__} -- Could not get match data for match ID: {match_id}")
+        print_to_log("WARNING", f"Could not get match data for match ID: {match_id}")
         return None
 
 async def get_kda_from_match(puuid, match_id):

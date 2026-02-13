@@ -5,6 +5,7 @@ import aiofiles
 import json
 import logging
 from groq import AsyncGroq
+import inspect
 
 # logger stuff
 # the idea is to have 2 different log files -- one with every single logging message from discord.py
@@ -18,6 +19,23 @@ important_stuff_handler.setLevel(logging.INFO)
 logger.addHandler(full_info_handler)
 logger.addHandler(important_stuff_handler)
 
+def print_to_log(type: str, message: str):
+    """Prints a message to the log file with the specified type (e.g. INFO, WARNING, DEBUG))."""
+    if type not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+        print_to_log("ERROR", f"Invalid log type: {type}")
+        match type:
+            case "DEBUG":
+                level_int = logging.DEBUG
+            case "INFO":
+                level_int = logging.INFO
+            case "WARNING":
+                level_int = logging.WARNING
+            case "ERROR":
+                level_int = logging.ERROR
+            case "CRITICAL":
+                level_int = logging.CRITICAL
+    logger.log(level=level_int, msg=f"{inspect.stack()[1].function} -- {message}")
+
 async def read_json_file(filename):
     """Safely reads a JSON file and returns a dictionary."""
     try:
@@ -28,10 +46,10 @@ async def read_json_file(filename):
             # therefore, we read the file contents and then use json.loads() instead of json.load() on the file directly
             return json.loads(content)
     except FileNotFoundError:
-        logger.warning(f"{read_json_file.__name__} -- File not found: {filename}. Returning empty dict.")
+        print_to_log("WARNING", f"File not found: {filename}. Returning empty dict.")
         return {}
     except json.JSONDecodeError:
-        logger.warning(f"{read_json_file.__name__} -- JSONDecodeError: {filename}. Returning empty dict.")
+        print_to_log("WARNING", f"JSONDecodeError: {filename}. Returning empty dict.")
         return {}
 
 async def write_json_file(filename, data):
@@ -56,6 +74,7 @@ async def get_http_response(url):
             }
             # you do not need to await response.status as it is just an integer, not a coroutine (unlike .json() for example)
             if response.status != 200:
+                print_to_log("WARNING", "Request to Riot API failed with status code {response.status} {response_code_errors[response.status]}")
                 logger.warning(f"{get_http_response.__name__} -- Request to Riot API failed with status code {response.status} {response_code_errors[response.status]}")
                 return None
             else:

@@ -20,14 +20,14 @@ async def setup_hook():
         # not any specific server
         # it will take longer to update this way
         synced = await bot.tree.sync()  # Sync all slash commands
-        print(f'Synced {len(synced)} command(s)')
+        print_to_log("INFO", f"Synced {len(synced)} command(s)")
     except Exception as e:
-        print(f'Failed to sync commands: {e}')
+        print_to_log("ERROR", f"Failed to sync commands: {e}")
 
 @bot.event
 async def on_ready():
-    print(f'Logged in as {bot.user}')
-    print(f'Connected to {len(bot.guilds)} server(s)')
+    print_to_log("INFO", f"Logged in as {bot.user}")
+    print_to_log("INFO", f"Connected to {len(bot.guilds)} server(s)")
     if not bot.is_testing:
         update_matches_loop.start()
 
@@ -122,16 +122,16 @@ async def list_players(interaction: discord.Interaction):
         return
 
     index = 1
-    print_string = ""
+    message_string = ""
     for player_name in channels[channel_id]["players"]:
-        print_string += f"{index}. {player_name}\n"
+        message_string += f"{index}. {player_name}\n"
         index += 1
     if index == 1:
         await interaction.response.send_message("No players are being tracked in this channel!")
     else:
         # delete the last newline character
-        print_string = print_string[:-1]
-        await interaction.response.send_message(print_string)
+        message_string = message_string[:-1]
+        await interaction.response.send_message(message_string)
 
 async def add_or_remove_player_from_files(add_or_remove, player_name, channel_id) -> str:
     """Returns a string that states the result of the operation"""
@@ -207,8 +207,7 @@ async def print_match_kda(channel_id, player_name, match_id):
 @tasks.loop(seconds=30)
 async def update_matches_loop():
     """Repeatedly checks all players for new matches, and if one is found, the bot types their KDA in the given discord channels"""
-    print("Checking for new matches...")
-    logger.info("Checking for new matches...")
+    print_to_log("INFO", "Checking for new matches...")
 
     players = await read_json_file("players.json")
     matches = await read_json_file("matches.json")
