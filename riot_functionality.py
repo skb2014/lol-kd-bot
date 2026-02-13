@@ -4,31 +4,46 @@ riot_api_key = getenv('RIOT_API_KEY')
 routing_region = getenv('ROUTING_REGION')
 riot_ids = getenv('RIOT_IDS').split(',')
 
+# in general, when a function is unable to return a proper output for whatever reason, it will resort to returning None
+
 async def get_puuid_from_riot_id(riot_id):
     """Gets the unique PUUID for an account using their Riot ID which looks like GameName#TagLine"""
     if len(riot_id.split('#')) == 2:
         game_name, tag_line = riot_id.split('#')
     else:
+        logger.warning(f"{get_puuid_from_riot_id.__name__} -- Invalid Riot ID format: {riot_id}. Should be GameName#TagLine")
         print("Invalid Riot ID format, should be GameName#TagLine")
         return None
     url = f"https://{routing_region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{game_name}/{tag_line}?api_key={riot_api_key}"
     data = await get_http_response(url)
-    return data["puuid"] if data else None
+    if data:
+        return data["puuid"]
+    else:
+        logger.warning(f"{get_puuid_from_riot_id.__name__} -- Could not find PUUID for Riot ID: {riot_id}")
+        return None
 
 async def get_latest_match_id(puuid):
     """Gets the match ID of the most recent match that the player with the specified PUUID played"""
     if puuid is None:
-        print("No PUUID entered, returning None")
+        logger.warning(f"{get_latest_match_id.__name__} -- PUUID is None")
         return None
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?start=0&count=1&api_key={riot_api_key}"
     data = await get_http_response(url)
-    return data[0] if data else None
+    if data:
+        return data[0]
+    else:
+        logger.warning(f"{get_latest_match_id.__name__} -- Could not get matches for for PUUID: {puuid}")
+        return None
 
 async def get_match_data(match_id):
     print("Finding match data...")
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}?api_key={riot_api_key}"
     data = await get_http_response(url)
-    return data   # data will already be None if the request fails
+    if data:
+        return data
+    else:
+        logger.warning(f"{get_match_data.__name__} -- Could not get match data for match ID: {match_id}")
+        return None
 
 async def get_kda_from_match(puuid, match_id):
     """Gets the KDA of the player with the specified PUUID in their most recent match, returned as a dictionary with keys 'kills', 'deaths', 'assists'"""
@@ -60,7 +75,7 @@ async def find_jungle_positions(participants, match_id, team_id):
     # print(jungle_id)
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}/timeline?api_key={riot_api_key}"
     data = await get_http_response(url)
-    info = data['info']  # NEED ERROR HANDLING HERE (IF REQUEST FAILS)
+    info = data['info']  # NEED ERROR HANDLING HERE (IF REQUEST FAILS) @ANDREW
 
     players = info['participants']
     jg_participant_id = next(
