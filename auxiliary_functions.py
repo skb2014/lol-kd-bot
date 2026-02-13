@@ -10,7 +10,7 @@ import inspect
 # logger stuff
 # the idea is to have 2 different log files -- one with every single logging message from discord.py
 # and one with only "higher level" log stuff which is easier to read
-logger = logging.getLogger('Bot Logger')
+logger = logging.getLogger('bot')
 logger.setLevel(logging.DEBUG)
 full_info_handler = logging.FileHandler(filename='full_info.log', encoding='utf-8', mode='w')
 full_info_handler.setLevel(logging.DEBUG)
@@ -18,22 +18,30 @@ important_stuff_handler = logging.FileHandler(filename='important_stuff.log', en
 important_stuff_handler.setLevel(logging.INFO)
 logger.addHandler(full_info_handler)
 logger.addHandler(important_stuff_handler)
+# giving the important_stuff_handler the same formatting as discord's full_info_handler
+# 1. Define the discord-style format
+# [%(asctime)s] [%(levelname)-8s] %(name)s: %(message)s
+discord_formatter = logging.Formatter(
+    ' [%(asctime)s] [%(levelname)-8s] %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+important_stuff_handler.setFormatter(discord_formatter)
 
 def print_to_log(type: str, message: str):
     """Prints a message to the log file with the specified type (e.g. INFO, WARNING, DEBUG))."""
     if type not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
         print_to_log("ERROR", f"Invalid log type: {type}")
-        match type:
-            case "DEBUG":
-                level_int = logging.DEBUG
-            case "INFO":
-                level_int = logging.INFO
-            case "WARNING":
-                level_int = logging.WARNING
-            case "ERROR":
-                level_int = logging.ERROR
-            case "CRITICAL":
-                level_int = logging.CRITICAL
+    match type:
+        case "DEBUG":
+            level_int = logging.DEBUG
+        case "INFO":
+            level_int = logging.INFO
+        case "WARNING":
+            level_int = logging.WARNING
+        case "ERROR":
+            level_int = logging.ERROR
+        case "CRITICAL":
+            level_int = logging.CRITICAL
     logger.log(level=level_int, msg=f"{inspect.stack()[1].function} -- {message}")
 
 async def read_json_file(filename):
