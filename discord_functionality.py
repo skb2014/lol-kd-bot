@@ -92,7 +92,7 @@ async def add_channel(interaction: discord.Interaction):
     if channel_id in channels:
         await interaction.response.send_message("This channel is already registered!")
         return
-    channels[channel_id] = {"players": []}
+    channels[channel_id] = {"name": interaction.channel.name ,"players": []}
     await write_json_file("channels.json", channels)
     await interaction.response.send_message("Channel registered successfully!")
     return
@@ -223,9 +223,12 @@ async def update_matches_loop():
             players[player_name]["most_recent_match_id"] = new_match_id
             players_with_new_matches[player_name] = new_match_id
     await write_json_file("players.json", players)
+    print_to_log("INFO", f"Players with new matches -- {players_with_new_matches}")
 
     match_ids_to_be_deleted = old_match_ids - new_match_ids
     match_ids_to_be_added = new_match_ids - old_match_ids
+    print_to_log("INFO", f"Match IDs to be deleted -- {match_ids_to_be_deleted}")
+    print_to_log("INFO", f"Match IDs to be added -- {match_ids_to_be_added}")
     for match_id in match_ids_to_be_deleted:
         matches.pop(match_id)
     for match_id in match_ids_to_be_added:
@@ -237,4 +240,5 @@ async def update_matches_loop():
     for channel_id in channels:
         for player_name in channels[channel_id]["players"]:
             if player_name in players_with_new_matches:
+                print_to_log("INFO", f"Sending KDA message for {player_name} in channel {channel_id}")
                 await print_match_kda(channel_id, player_name, players_with_new_matches[player_name])
