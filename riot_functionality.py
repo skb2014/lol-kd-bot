@@ -1,56 +1,8 @@
-from os import getenv
-from dotenv import load_dotenv
-import json
-import aiohttp
-import aiofiles
+from auxiliary_functions import *
 
-load_dotenv()
 riot_api_key = getenv('RIOT_API_KEY')
 routing_region = getenv('ROUTING_REGION')
 riot_ids = getenv('RIOT_IDS').split(',')
-
-async def read_json_file(filename):
-    """Safely reads a JSON file and returns a dictionary."""
-    try:
-        async with aiofiles.open(filename, mode="r") as f:
-            content = await f.read()
-            # json.loads() and json.dumps() are allegedly faster than json.load() and json.dump(),
-            # theoretically making them better in async functions even though they still are synchronous
-            # therefore, we read the file contents and then use json.loads() instead of json.load() on the file directly
-            return json.loads(content)
-    except FileNotFoundError:
-        print(f"Warning: {filename} not found. Returning empty dict.")
-        return {}
-    except json.JSONDecodeError:
-        print(f"Warning: {filename} is corrupted. Returning empty dict.")
-        return {}
-
-async def write_json_file(filename, data):
-    """Safely writes a dictionary to a JSON file."""
-    async with aiofiles.open(filename, mode="w") as f:
-        if data:
-            # same thing, you can't json.dump(f) directly
-            # also adding a new line character to make it look better when read in the terminal
-            await f.write(json.dumps(data, indent=4) + "\n")
-        # if there is no data, write an empty dictionary
-        else:
-            await f.write("{}\n")
-
-async def get_http_response(url):
-    """Sends a GET request to the specified URL and returns the response. Checks the status code as well."""
-    async with aiohttp.ClientSession() as session:
-        # the next with block automatically releases the response after it's done with it
-        async with session.get(url) as response:
-            response_code_errors = {
-                400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 429: "Rate Limit Exceeded",
-                500: "Internal Server Error", 502: "Bad Gateway", 503: "Service Unavailable", 504: "Gateway Timeout"
-            }
-            # you do not need to await response.status as it is just an integer, not a coroutine (unlike .json() for example)
-            if response.status != 200:
-                print(f"Request to Riot API failed with status code {response.status} {response_code_errors[response.status]}")
-                return None
-            else:
-                return await response.json()
 
 async def get_puuid_from_riot_id(riot_id):
     """Gets the unique PUUID for an account using their Riot ID which looks like GameName#TagLine"""

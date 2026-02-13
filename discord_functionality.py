@@ -1,10 +1,7 @@
 import discord
 from discord.ext import commands, tasks
 from riot_functionality import *
-import logging
-from groq import AsyncGroq
 
-async_groq_client = AsyncGroq(api_key=getenv('GROQ_API_KEY'))
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -14,11 +11,6 @@ intents.members = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 # I want to be able to run the bot in a "testing" mode where it doesn't execute the update matches loop
 bot.is_testing = False
-
-handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
-logger = logging.getLogger('Match Checker')
-logger.setLevel(logging.DEBUG)
-logger.addHandler(handler)
 
 @bot.event
 async def setup_hook():
