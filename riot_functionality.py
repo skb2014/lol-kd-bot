@@ -48,6 +48,7 @@ async def get_match_data(match_id):
 async def get_kda_from_match(puuid, match_id):
     """Gets the KDA of the player with the specified PUUID in their most recent match, returned as a dictionary with keys 'kills', 'deaths', 'assists'"""
     matches = await read_json_file("matches.json")
+    # TODO: KEY ERROR -- NONE (THIS IS POSSIBLY THE SOURCE OF ERROR?)
     match_data = matches[match_id]
     player_index = match_data['metadata']['participants'].index(puuid)
     participants = match_data['info']['participants']

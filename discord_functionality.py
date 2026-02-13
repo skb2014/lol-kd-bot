@@ -30,6 +30,7 @@ async def on_ready():
     print_to_log("INFO", f"Connected to {len(bot.guilds)} server(s)")
     if not bot.is_testing:
         update_matches_loop.start()
+    print("Bot is running...")
 
 @bot.event
 async def on_message(message):
@@ -187,6 +188,7 @@ async def remove_player(interaction: discord.Interaction, player_name: str):
 
 @bot.tree.command(name="clear_all_data", description="Clears all data stored by the bot, including players and matches")
 async def clear_all_data(interaction: discord.Interaction):
+    """Use for debugging purposes, will probably be removed later"""
     await write_json_file("channels.json", {})
     await write_json_file("players.json", {})
     await write_json_file("matches.json", {})
@@ -218,6 +220,8 @@ async def update_matches_loop():
     players_with_new_matches = dict()
     for player_name in players.keys():
         new_match_id = await get_latest_match_id(players[player_name]["puuid"])
+        print_to_log("INFO", f"Player {player_name}'s most recent match has ID: {new_match_id}")
+        print_to_log("INFO", f"Their previous most recent match had ID {players[player_name]['most_recent_match_id']}")
         new_match_ids.add(new_match_id)
         if new_match_id != players[player_name]["most_recent_match_id"]:
             players[player_name]["most_recent_match_id"] = new_match_id
@@ -227,8 +231,6 @@ async def update_matches_loop():
 
     match_ids_to_be_deleted = old_match_ids - new_match_ids
     match_ids_to_be_added = new_match_ids - old_match_ids
-    print_to_log("INFO", f"Match IDs to be deleted -- {match_ids_to_be_deleted}")
-    print_to_log("INFO", f"Match IDs to be added -- {match_ids_to_be_added}")
     for match_id in match_ids_to_be_deleted:
         matches.pop(match_id)
     for match_id in match_ids_to_be_added:
@@ -240,5 +242,5 @@ async def update_matches_loop():
     for channel_id in channels:
         for player_name in channels[channel_id]["players"]:
             if player_name in players_with_new_matches:
-                print_to_log("INFO", f"Sending KDA message for {player_name} in channel {channel_id}")
+                print_to_log("INFO", f"Sending KDA message for {player_name} in channel {channels[channel_id]["name"]}")
                 await print_match_kda(channel_id, player_name, players_with_new_matches[player_name])
