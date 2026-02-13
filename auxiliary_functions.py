@@ -6,6 +6,18 @@ import json
 import logging
 from groq import AsyncGroq
 
+# logger stuff
+# the idea is to have 2 different log files -- one with every single logging message from discord.py
+# and one with only "higher level" log stuff which is easier to read
+logger = logging.getLogger('Bot Logger')
+logger.setLevel(logging.DEBUG)
+full_info_handler = logging.FileHandler(filename='full_info.log', encoding='utf-8', mode='w')
+full_info_handler.setLevel(logging.DEBUG)
+important_stuff_handler = logging.FileHandler(filename='important_stuff.log', encoding='utf-8', mode='w')
+important_stuff_handler.setLevel(logging.INFO)
+logger.addHandler(full_info_handler)
+logger.addHandler(important_stuff_handler)
+
 async def read_json_file(filename):
     """Safely reads a JSON file and returns a dictionary."""
     try:
@@ -16,10 +28,10 @@ async def read_json_file(filename):
             # therefore, we read the file contents and then use json.loads() instead of json.load() on the file directly
             return json.loads(content)
     except FileNotFoundError:
-        print(f"Warning: {filename} not found. Returning empty dict.")
+        logger.warning(f"{read_json_file.__name__} -- File not found: {filename}. Returning empty dict.")
         return {}
     except json.JSONDecodeError:
-        print(f"Warning: {filename} is corrupted. Returning empty dict.")
+        logger.warning(f"{read_json_file.__name__} -- JSONDecodeError: {filename}. Returning empty dict.")
         return {}
 
 async def write_json_file(filename, data):
@@ -44,22 +56,10 @@ async def get_http_response(url):
             }
             # you do not need to await response.status as it is just an integer, not a coroutine (unlike .json() for example)
             if response.status != 200:
-                print(f"Request to Riot API failed with status code {response.status} {response_code_errors[response.status]}")
+                logger.warning(f"{get_http_response.__name__} -- Request to Riot API failed with status code {response.status} {response_code_errors[response.status]}")
                 return None
             else:
                 return await response.json()
-
-# logger stuff
-# the idea is to have 2 different log files -- one with every single logging message from discord.py
-# and one with only "higher level" log stuff which is easier to read
-logger = logging.getLogger('Bot Logger')
-logger.setLevel(logging.DEBUG)
-full_info_handler = logging.FileHandler(filename='full_info.log', encoding='utf-8', mode='w')
-full_info_handler.setLevel(logging.DEBUG)
-important_stuff_handler = logging.FileHandler(filename='important_stuff.log', encoding='utf-8', mode='w')
-important_stuff_handler.setLevel(logging.INFO)
-logger.addHandler(full_info_handler)
-logger.addHandler(important_stuff_handler)
 
 # loading all the environment variables now
 load_dotenv()
