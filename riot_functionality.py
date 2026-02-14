@@ -47,51 +47,45 @@ async def get_match_data(match_id):
 
 async def get_kda_from_match(puuid, match_id):
     """Gets the KDA of the player with the specified PUUID in their most recent match, returned as a dictionary with keys 'kills', 'deaths', 'assists'"""
-    matches = await read_json_file("matches.json")
-    # TODO: KEY ERROR -- NONE (THIS IS POSSIBLY THE SOURCE OF ERROR?)
-    match_data = matches[match_id]
-    player_index = match_data['metadata']['participants'].index(puuid)
-    participants = match_data['info']['participants']
-    player_data = participants[player_index]
-    player_position = player_data['teamPosition']
-    sidelane = player_position not in ["UTILITY", "JUNGLE", "MIDDLE"]
-    sided = await calc_weakside(participants, match_id, player_data["teamId"], player_position) if sidelane else ""
-    return {
-        'kills': player_data['kills'], 
-        'deaths': player_data['deaths'], 
-        'assists': player_data['assists'],
-        'lost': player_data['nexusLost'],
-        'sided': sided
-    }
+    try:
+        matches = await read_json_file("matches.json")
+        # TODO: KEY ERROR -- NONE (THIS IS POSSIBLY THE SOURCE OF ERROR?)
+        match_data = matches[match_id]
+        player_index = match_data['metadata']['participants'].index(puuid)
+        participants = match_data['info']['participants']
+        player_data = participants[player_index]
+        player_position = player_data['teamPosition']
+        sidelane = player_position not in ["UTILITY", "JUNGLE", "MIDDLE"]
+        sided = await calc_weakside(participants, match_id, player_data["teamId"], player_position) if sidelane else ""
+        return {
+            'kills': player_data['kills'], 
+            'deaths': player_data['deaths'], 
+            'assists': player_data['assists'],
+            'lost': player_data['nexusLost'],
+            'sided': sided
+        }
+    except (TypeError, KeyError) as e:
+        print_to_log("ERROR", f"error in finding kda: {e}")
+        return None
 
 async def find_jungle_positions(participants, match_id, team_id):
-    jungle_id = next(
-        (p['puuid'] for p in participants if p['teamPosition'] == "JUNGLE" and p["teamId"] == team_id),
-        None
-    )
+    try:
+        jungle_id = next((p['puuid'] for p in participants if p['teamPosition'] == "JUNGLE" and p["teamId"] == team_id))
+        url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}/timeline?api_key={riot_api_key}"
+        data = await get_http_response(url)
+        info = data['info']
 
-    if not jungle_id:
+        players = info['participants']
+        jg_participant_id = next((str(p['participantId']) for p in players if p['puuid'] == jungle_id))
+
+        # limit to 20 (approx when laning phase ends)
+        return [
+            list(frame['participantFrames'][jg_participant_id]['position'].values()) 
+            for frame in info['frames'][:21]
+        ]
+    except (StopIteration, KeyError, TypeError) as e:
+        print_to_log("ERROR", f"error in finding jungle positions: {e}")
         return None
-    
-    # print(jungle_id)
-    url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}/timeline?api_key={riot_api_key}"
-    data = await get_http_response(url)
-    info = data['info']  # NEED ERROR HANDLING HERE (IF REQUEST FAILS) @ANDREW
-
-    players = info['participants']
-    jg_participant_id = next(
-        (str(p['participantId']) for p in players if p['puuid'] == jungle_id),
-        None
-    )
-
-    if not jg_participant_id:
-        return None
-
-    # limit to 20 (approx when laning phase ends)
-    return [
-        list(frame['participantFrames'][jg_participant_id]['position'].values()) 
-        for frame in info['frames'][:21]
-    ]
 
 async def calc_weakside(participants, match_id, team_id, position):
     positions = await find_jungle_positions(participants, match_id, team_id)
