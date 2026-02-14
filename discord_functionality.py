@@ -206,7 +206,7 @@ async def print_match_kda(channel_id, player_name, match_id):
     channel = bot.get_channel(int(channel_id))
     await channel.send(f"**{player_name}** just **{result}** a game. {kda["sided"]} KDA: {kda["kills"]}/{kda["deaths"]}/{kda["assists"]}")
 
-@tasks.loop(seconds=30)
+@tasks.loop(seconds=60)
 async def update_matches_loop():
     """Repeatedly checks all players for new matches, and if one is found, the bot types their KDA in the given discord channels"""
     print_to_log("INFO", "Checking for new matches...")
