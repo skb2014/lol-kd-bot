@@ -107,7 +107,7 @@ async def calc_weakside(participants, match_id, team_id, position):
             botside += 1
 
     top_p, bot_p = round((topside / total) * 100, 2), round((botside / total) * 100, 2)
-    print(top_p, bot_p)
+    print_to_log("INFO", f"top_p: {top_p}, bot_p: {bot_p}")
     strongsided = (position == "TOP" and topside >= botside) or (position == "BOTTOM" and botside >= topside)
     side_str = f"**strongsided** ({max(top_p, bot_p)}%)" if strongsided else f"**weaksided** ({min(top_p, bot_p)}%)"
     return f"They were {side_str}. "
