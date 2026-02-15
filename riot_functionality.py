@@ -45,7 +45,7 @@ async def get_match_data(match_id):
         print_to_log("WARNING", f"Could not get match data for match ID: {match_id}")
         return None
 
-async def get_kda_from_match(puuid, match_id):
+async def get_kda_from_match(puuid, match_id) -> dict:
     """Gets the KDA of the player with the specified PUUID in their most recent match, returned as a dictionary with keys 'kills', 'deaths', 'assists'"""
     matches = await read_json_file("matches.json")
     # TODO: KEY ERROR -- NONE (THIS IS POSSIBLY THE SOURCE OF ERROR?)

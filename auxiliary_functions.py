@@ -27,24 +27,21 @@ discord_formatter = logging.Formatter(
 )
 important_stuff_handler.setFormatter(discord_formatter)
 
-def print_to_log(type: str, message: str):
-    """Prints a message to the log file with the specified type (e.g. INFO, WARNING, DEBUG))."""
-    if type not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
-        print_to_log("ERROR", f"Invalid log type: {type}")
-    match type:
-        case "DEBUG":
-            level_int = logging.DEBUG
-        case "INFO":
-            level_int = logging.INFO
-        case "WARNING":
-            level_int = logging.WARNING
-        case "ERROR":
-            level_int = logging.ERROR
-        case "CRITICAL":
-            level_int = logging.CRITICAL
+def print_to_log(type_of_message: str, message: str) -> None:
+    """Prints a message to the log file with the specified type (e.g., INFO, WARNING, DEBUG))."""
+    if type_of_message not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+        print_to_log("ERROR", f"Invalid log type: {type_of_message}")
+    type_of_message_map = {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
+        "CRITICAL": logging.CRITICAL
+    }
+    level_int = type_of_message_map[type_of_message]
     logger.log(level=level_int, msg=f"{inspect.stack()[1].function} -- {message}")
 
-async def read_json_file(filename):
+async def read_json_file(filename: str) -> dict:
     """Safely reads a JSON file and returns a dictionary."""
     try:
         async with aiofiles.open(filename, mode="r") as f:
@@ -60,7 +57,7 @@ async def read_json_file(filename):
         print_to_log("WARNING", f"JSONDecodeError: {filename}. Returning empty dict.")
         return {}
 
-async def write_json_file(filename, data):
+async def write_json_file(filename: str, data: dict) -> None:
     """Safely writes a dictionary to a JSON file."""
     async with aiofiles.open(filename, mode="w") as f:
         if data:
@@ -71,7 +68,7 @@ async def write_json_file(filename, data):
         else:
             await f.write("{}\n")
 
-async def get_http_response(url):
+async def get_http_response(url: str) -> dict:
     """Sends a GET request to the specified URL and returns the response. Checks the status code as well."""
     async with aiohttp.ClientSession() as session:
         # the next with block automatically releases the response after it's done with it

@@ -194,10 +194,6 @@ async def clear_all_data(interaction: discord.Interaction):
     await write_json_file("matches.json", {})
     await interaction.response.send_message("All data cleared successfully!")
 
-@bot.tree.command(name="investigate_player", description="Checks player's most recent game to determine winning/losing league")
-async def investigate_player(interaction: discord.Interaction, player_name: str):
-    pass
-
 async def print_match_kda(channel_id, player_name, match_id):
     players = await read_json_file("players.json")
     puuid = players[player_name]["puuid"]
@@ -220,6 +216,9 @@ async def update_matches_loop():
     players_with_new_matches = dict()
     for player_name in players.keys():
         new_match_id = await get_latest_match_id(players[player_name]["puuid"])
+        if new_match_id is None:
+            print_to_log("WARNING", f"Failed to get match ID for player {player_name}, skipping...")
+            break
         print_to_log("INFO", f"Player {player_name}'s most recent match has ID: {new_match_id}")
         print_to_log("INFO", f"Their previous most recent match had ID {players[player_name]['most_recent_match_id']}")
         new_match_ids.add(new_match_id)
