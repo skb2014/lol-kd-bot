@@ -107,7 +107,7 @@ async def remove_channel(interaction: discord.Interaction):
         return
 
     for player_name in channels[channel_id]["players"]:
-        await add_or_remove_player_from_files("remove", player_name, channel_id)
+        await remove_player_from_file(player_name, channel_id)
     # del might be more dangerous, so pop is used instead
     channels.pop(channel_id)
     await write_json_file("channels.json", channels)
@@ -134,56 +134,58 @@ async def list_players(interaction: discord.Interaction):
         message_string = message_string[:-1]
         await interaction.response.send_message(message_string)
 
-async def add_or_remove_player_from_files(add_or_remove, player_name, channel_id) -> str:
-    """Returns a string that states the result of the operation"""
-    if not add_or_remove in ["add", "remove"]:
-        return "Invalid operation!"
-
+async def add_player_to_file(player_name, channel_id) -> str:
     channels = await read_json_file("channels.json")
     players = await read_json_file("players.json")
     if channel_id not in channels:
         return "Channel not registered!"
-    if add_or_remove == "add":
-        if player_name in channels[channel_id]["players"]:
-            return "Player already registered in this channel!"
-        # need to check that the player is real by verifying that it has a PUUID
-        puuid = await get_puuid_from_riot_id(player_name)
-        if puuid is None:
-            return f"Player {player_name} not found!"
+    
+    if player_name in channels[channel_id]["players"]:
+        return "Player already registered in this channel!"
+    # need to check that the player is real by verifying that it has a PUUID
+    puuid = await get_puuid_from_riot_id(player_name)
+    if puuid is None:
+        return f"Player {player_name} not found!"
 
-        channels[channel_id]["players"].append(player_name)
-        # if the player isn't already in the players.json file, add them
-        if player_name not in players:
-            players[player_name] = {"puuid": puuid, "channels": [channel_id], "most_recent_match_id": None}
-        else:
-            players[player_name]["channels"].append(channel_id)
+    channels[channel_id]["players"].append(player_name)
+    # if the player isn't already in the players.json file, add them
+    if player_name not in players:
+        players[player_name] = {"puuid": puuid, "channels": [channel_id], "most_recent_match_id": None}
     else:
-        if player_name not in channels[channel_id]["players"]:
-            return "Player already not registered in this channel!"
-
-        channels[channel_id]["players"].remove(player_name)
-        players[player_name]["channels"].remove(channel_id)
-        # if the player doesn't exist in any channels, delete them
-        if not players[player_name]["channels"]:
-            players.pop(player_name)
+        players[player_name]["channels"].append(channel_id)
 
     await write_json_file("channels.json", channels)
     await write_json_file("players.json", players)
-    if add_or_remove == "add":
-        return f"{player_name} added successfully!"
-    else:
-        return f"{player_name} removed successfully!"
+    return f"{player_name} added successfully!"
 
+async def remove_player_from_file(player_name, channel_id):
+    channels = await read_json_file("channels.json")
+    players = await read_json_file("players.json")
+    if channel_id not in channels:
+        return "Channel not registered!"
+    if player_name not in channels[channel_id]["players"]:
+        return "Player already not registered in this channel!"
+
+    channels[channel_id]["players"].remove(player_name)
+    players[player_name]["channels"].remove(channel_id)
+    # if the player doesn't exist in any channels, delete them
+    if not players[player_name]["channels"]:
+        players.pop(player_name)
+
+    await write_json_file("channels.json", channels)
+    await write_json_file("players.json", players)
+    return f"{player_name} removed successfully!"
+    
 @bot.tree.command(name="add_player", description="Adds a player to be tracked in this channel (channel must be registered")
 async def add_player(interaction: discord.Interaction, player_name: str):
     channel_id = str(interaction.channel.id)
-    result = await add_or_remove_player_from_files("add", player_name, channel_id)
+    result = await add_player_to_file(player_name, channel_id)
     await interaction.response.send_message(result)
 
 @bot.tree.command(name="remove_player", description="Removes a player from being tracked in this channel (channel must be registered)")
 async def remove_player(interaction: discord.Interaction, player_name: str):
     channel_id = str(interaction.channel.id)
-    result = await add_or_remove_player_from_files("remove", player_name, channel_id)
+    result = await remove_player_from_file(player_name, channel_id)
     await interaction.response.send_message(result)
 
 @bot.tree.command(name="clear_all_data", description="Clears all data stored by the bot, including players and matches")
