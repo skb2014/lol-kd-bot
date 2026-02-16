@@ -106,7 +106,7 @@ async def add_channel(interaction: discord.Interaction):
 @bot.tree.command(name="remove_channel", description="Removes this channel from tracking, clearing all players")
 async def remove_channel(interaction: discord.Interaction):
     channel_id = str(interaction.channel.id)
-    channels = read_json_file("channels.json")
+    channels = await read_json_file("channels.json")
     if channel_id not in channels:
         await interaction.response.send_message("This channel is already not registered!")
         return
