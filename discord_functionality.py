@@ -2,7 +2,6 @@ import discord
 from discord.ext import commands, tasks
 from riot_functionality import *
 
-
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
@@ -11,6 +10,7 @@ intents.members = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 # I want to be able to run the bot in a "testing" mode where it doesn't execute the update matches loop
 bot.is_testing = False
+
 
 @bot.event
 async def setup_hook():
@@ -24,6 +24,7 @@ async def setup_hook():
     except Exception as e:
         print_to_log("ERROR", f"Failed to sync commands: {e}")
 
+
 @bot.event
 async def on_ready():
     print_to_log("INFO", f"Logged in as {bot.user}")
@@ -31,6 +32,7 @@ async def on_ready():
     if not bot.is_testing:
         update_matches_loop.start()
     print("Bot is running...")
+
 
 @bot.event
 async def on_message(message):
@@ -78,14 +80,16 @@ async def on_message(message):
                     # !! perhaps this should be a reply chain
                     response_text = remainder_text
                 await message.channel.send(response_text)
-                    
+
             except Exception as e:
                 await message.channel.send(f"Error: {e}")
 
     # lets the bot process other commands? idk if it's necessary since there are no text (non-slash) commands yet
     await bot.process_commands(message)
 
-@bot.tree.command(name="add_channel", description="Registers this channel to the bot, allowing you to add players to be tracked")
+
+@bot.tree.command(name="add_channel",
+                  description="Registers this channel to the bot, allowing you to add players to be tracked")
 async def add_channel(interaction: discord.Interaction):
     # JSON keys must be strings, not ints
     channel_id = str(interaction.channel.id)
@@ -93,10 +97,11 @@ async def add_channel(interaction: discord.Interaction):
     if channel_id in channels:
         await interaction.response.send_message("This channel is already registered!")
         return
-    channels[channel_id] = {"name": interaction.channel.name ,"players": []}
+    channels[channel_id] = {"name": interaction.channel.name, "players": []}
     await write_json_file("channels.json", channels)
     await interaction.response.send_message("Channel registered successfully!")
     return
+
 
 @bot.tree.command(name="remove_channel", description="Removes this channel from tracking, clearing all players")
 async def remove_channel(interaction: discord.Interaction):
@@ -113,6 +118,7 @@ async def remove_channel(interaction: discord.Interaction):
     await write_json_file("channels.json", channels)
     await interaction.response.send_message("Channel removed successfully!")
     return
+
 
 @bot.tree.command(name="list_players", description="Lists all players currently being tracked in this channel")
 async def list_players(interaction: discord.Interaction):
@@ -134,12 +140,13 @@ async def list_players(interaction: discord.Interaction):
         message_string = message_string[:-1]
         await interaction.response.send_message(message_string)
 
+
 async def add_player_to_file(player_name, channel_id) -> str:
     channels = await read_json_file("channels.json")
     players = await read_json_file("players.json")
     if channel_id not in channels:
         return "Channel not registered!"
-    
+
     if player_name in channels[channel_id]["players"]:
         return "Player already registered in this channel!"
     # need to check that the player is real by verifying that it has a PUUID
@@ -158,6 +165,7 @@ async def add_player_to_file(player_name, channel_id) -> str:
     await write_json_file("players.json", players)
     return f"{player_name} added successfully!"
 
+
 async def remove_player_from_file(player_name, channel_id):
     channels = await read_json_file("channels.json")
     players = await read_json_file("players.json")
@@ -175,18 +183,23 @@ async def remove_player_from_file(player_name, channel_id):
     await write_json_file("channels.json", channels)
     await write_json_file("players.json", players)
     return f"{player_name} removed successfully!"
-    
-@bot.tree.command(name="add_player", description="Adds a player to be tracked in this channel (channel must be registered")
+
+
+@bot.tree.command(name="add_player",
+                  description="Adds a player to be tracked in this channel (channel must be registered")
 async def add_player(interaction: discord.Interaction, player_name: str):
     channel_id = str(interaction.channel.id)
     result = await add_player_to_file(player_name, channel_id)
     await interaction.response.send_message(result)
 
-@bot.tree.command(name="remove_player", description="Removes a player from being tracked in this channel (channel must be registered)")
+
+@bot.tree.command(name="remove_player",
+                  description="Removes a player from being tracked in this channel (channel must be registered)")
 async def remove_player(interaction: discord.Interaction, player_name: str):
     channel_id = str(interaction.channel.id)
     result = await remove_player_from_file(player_name, channel_id)
     await interaction.response.send_message(result)
+
 
 @bot.tree.command(name="clear_all_data", description="Clears all data stored by the bot, including players and matches")
 async def clear_all_data(interaction: discord.Interaction):
@@ -196,13 +209,16 @@ async def clear_all_data(interaction: discord.Interaction):
     await write_json_file("matches.json", {})
     await interaction.response.send_message("All data cleared successfully!")
 
+
 async def print_match_kda(channel_id, player_name, match_id):
     players = await read_json_file("players.json")
     puuid = players[player_name]["puuid"]
     kda = await get_kda_from_match(puuid, match_id)
     result = "lost" if kda["lost"] else "won"
     channel = bot.get_channel(int(channel_id))
-    await channel.send(f"**{player_name}** just **{result}** a game. {kda["sided"]} KDA: {kda["kills"]}/{kda["deaths"]}/{kda["assists"]}")
+    await channel.send(
+        f"**{player_name}** just **{result}** a game. {kda["sided"]} KDA: {kda["kills"]}/{kda["deaths"]}/{kda["assists"]}")
+
 
 @tasks.loop(seconds=60)
 async def update_matches_loop():

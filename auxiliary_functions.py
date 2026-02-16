@@ -27,6 +27,7 @@ discord_formatter = logging.Formatter(
 )
 important_stuff_handler.setFormatter(discord_formatter)
 
+
 def print_to_log(type_of_message: str, message: str) -> None:
     """Prints a message to the log file with the specified type (e.g., INFO, WARNING, DEBUG))."""
     if type_of_message not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
@@ -40,6 +41,7 @@ def print_to_log(type_of_message: str, message: str) -> None:
     }
     level_int = type_of_message_map[type_of_message]
     logger.log(level=level_int, msg=f"{inspect.stack()[1].function} -- {message}")
+
 
 async def read_json_file(filename: str) -> dict:
     """Safely reads a JSON file and returns a dictionary."""
@@ -57,6 +59,7 @@ async def read_json_file(filename: str) -> dict:
         print_to_log("WARNING", f"JSONDecodeError: {filename}. Returning empty dict.")
         return {}
 
+
 async def write_json_file(filename: str, data: dict) -> None:
     """Safely writes a dictionary to a JSON file."""
     async with aiofiles.open(filename, mode="w") as f:
@@ -68,7 +71,8 @@ async def write_json_file(filename: str, data: dict) -> None:
         else:
             await f.write("{}\n")
 
-async def get_http_response(url: str) -> dict:
+
+async def get_http_response(url: str) -> dict | None:
     """Sends a GET request to the specified URL and returns the response. Checks the status code as well."""
     async with aiohttp.ClientSession() as session:
         # the next with block automatically releases the response after it's done with it
@@ -79,11 +83,12 @@ async def get_http_response(url: str) -> dict:
             }
             # you do not need to await response.status as it is just an integer, not a coroutine (unlike .json() for example)
             if response.status != 200:
-                print_to_log("WARNING", "Request to Riot API failed with status code {response.status} {response_code_errors[response.status]}")
-                logger.warning(f"{get_http_response.__name__} -- Request to Riot API failed with status code {response.status} {response_code_errors[response.status]}")
+                print_to_log("WARNING",
+                             f"Request to Riot API failed with status code {response.status} {response_code_errors[response.status]}")
                 return None
             else:
                 return await response.json()
+
 
 # loading all the environment variables now
 load_dotenv()

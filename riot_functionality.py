@@ -4,6 +4,7 @@ riot_api_key = getenv('RIOT_API_KEY')
 routing_region = getenv('ROUTING_REGION')
 riot_ids = getenv('RIOT_IDS').split(',')
 
+
 # in general, when a function is unable to return a proper output for whatever reason, it will resort to returning None
 
 async def get_puuid_from_riot_id(riot_id):
@@ -22,6 +23,7 @@ async def get_puuid_from_riot_id(riot_id):
         print_to_log("WARNING", f"Could not find PUUID for Riot ID: {riot_id}")
         return None
 
+
 async def get_latest_match_id(puuid):
     """Gets the match ID of the most recent match that the player with the specified PUUID played"""
     if puuid is None:
@@ -35,6 +37,7 @@ async def get_latest_match_id(puuid):
         print_to_log("WARNING", f"Could not get matches for for PUUID: {puuid}")
         return None
 
+
 async def get_match_data(match_id):
     print("Finding match data...")
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}?api_key={riot_api_key}"
@@ -45,7 +48,8 @@ async def get_match_data(match_id):
         print_to_log("WARNING", f"Could not get match data for match ID: {match_id}")
         return None
 
-async def get_kda_from_match(puuid, match_id) -> dict:
+
+async def get_kda_from_match(puuid, match_id) -> dict | None:
     """Gets the KDA of the player with the specified PUUID in their most recent match, returned as a dictionary with keys 'kills', 'deaths', 'assists'"""
     try:
         matches = await read_json_file("matches.json")
@@ -58,8 +62,8 @@ async def get_kda_from_match(puuid, match_id) -> dict:
         sidelane = player_position not in ["UTILITY", "JUNGLE", "MIDDLE"]
         sided = await calc_weakside(participants, match_id, player_data["teamId"], player_position) if sidelane else ""
         return {
-            'kills': player_data['kills'], 
-            'deaths': player_data['deaths'], 
+            'kills': player_data['kills'],
+            'deaths': player_data['deaths'],
             'assists': player_data['assists'],
             'lost': player_data['nexusLost'],
             'sided': sided
@@ -67,6 +71,7 @@ async def get_kda_from_match(puuid, match_id) -> dict:
     except (TypeError, KeyError) as e:
         print_to_log("ERROR", f"error in finding kda: {e}")
         return None
+
 
 async def find_jungle_positions(participants, match_id, team_id):
     try:
@@ -80,18 +85,19 @@ async def find_jungle_positions(participants, match_id, team_id):
 
         # limit to 20 (approx when laning phase ends)
         return [
-            list(frame['participantFrames'][jg_participant_id]['position'].values()) 
+            list(frame['participantFrames'][jg_participant_id]['position'].values())
             for frame in info['frames'][:21]
         ]
     except (StopIteration, KeyError, TypeError) as e:
         print_to_log("ERROR", f"error in finding jungle positions: {e}")
         return None
 
+
 async def calc_weakside(participants, match_id, team_id, position):
     positions = await find_jungle_positions(participants, match_id, team_id)
     if not positions:
         return None
-    
+
     total = len(positions)
     topside, botside = 0, 0
     for x, y in positions:
