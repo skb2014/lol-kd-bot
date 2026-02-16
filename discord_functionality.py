@@ -56,36 +56,27 @@ async def on_message(message):
 
         # uses a typing indicator so users know the AI is thinking
         async with message.channel.typing():
-            try:
-                chat_completion = await async_groq_client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[
-                        {"role": "system",
-                         "content": """You are a discord bot whose role is to analyze match data and determine
-                         whether specificied players are playing "winning league" (i.e., they are contributing
-                         in a useful manner), or "losing league" (i.e., actively detrimental to the team ).
-                         Aim to keep your responses relatively short (around 2000 words or less)."""},
-                        {"role": "user", "content": user_query}
-                    ],
-                    max_completion_tokens=512  # approximately 2k characters to not run into the message character limit
-                )
+            prompts = [
+                {"role": "system",
+                "content": """You are a discord bot whose role is to analyze match data and determine
+                whether specificied players are playing "winning league" (i.e., they are contributing
+                in a useful manner), or "losing league" (i.e., actively detrimental to the team ).
+                Aim to keep your responses relatively short (around 2000 words or less)."""},
+                {"role": "user", "content": user_query}
+            ]
+            response_text = get_groq_response(prompts)
+            # safety slice for discord's 2000 character limit for messages
+            # note: if the text seems to randomly truncate, it's because it's
+            # exceeding the token limit in the LLM query
+            while len(response_text) > 1985:
+                remainder_text = response_text[1985:]
+                await message.channel.send(response_text[:1985] + " ...(cont.)")
+                # !! perhaps this should be a reply chain
+                response_text = remainder_text
+            await message.channel.send(response_text)
 
-                response_text = chat_completion.choices[0].message.content
-                # safety slice for discord's 2000 character limit for messages
-                # note: if the text seems to randomly truncate, it's because it's
-                # exceeding the 512 token limit on the responses set above
-                while len(response_text) > 1985:
-                    remainder_text = response_text[1985:]
-                    await message.channel.send(response_text[:1985] + " ...(cont.)")
-                    # !! perhaps this should be a reply chain
-                    response_text = remainder_text
-                await message.channel.send(response_text)
-
-            except Exception as e:
-                await message.channel.send(f"Error: {e}")
-
-    # lets the bot process other commands? idk if it's necessary since there are no text (non-slash) commands yet
-    await bot.process_commands(message)
+        # lets the bot process other commands? idk if it's necessary since there are no text (non-slash) commands yet
+        await bot.process_commands(message)
 
 
 @bot.tree.command(name="add_channel",
