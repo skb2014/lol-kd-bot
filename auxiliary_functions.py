@@ -122,3 +122,6 @@ with open("prompts/prompt_1.txt", mode="r") as f:
 
 with open("prompts/prompt_2.txt", mode="r") as f:
     prompt_2 = f.read()
+
+with open("prompts/prompt_3.txt", mode="r") as f:
+    prompt_3 = f.read()

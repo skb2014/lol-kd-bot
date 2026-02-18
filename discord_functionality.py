@@ -35,71 +35,74 @@ async def on_ready():
     print("Bot is running...")
 
 
+async def send_a_long_message_in_multiple_parts(channel: discord.TextChannel, content: str, message_to_reply_to: discord.Message | None = None):
+    # because discord has a 2000 character limit for non nitro members
+    # note: if the text seems to randomly truncate, it's because it's
+    # exceeding the token limit in the LLM query
+    while len(content) > 1985:
+        remainder_text = content[1985:]
+        await channel.send(content[:1985] + " ...(cont.)", reference=message_to_reply_to)
+        # !! perhaps this should be a reply chain
+        content = remainder_text
+    await channel.send(content, reference=message_to_reply_to)
+
+
 @bot.event
 async def on_message(message: discord.Message):
     # ignore messages sent by the bot itself to avoid infinite loops
     if message.author == bot.user:
         return
-    channel = message.channel_mentions
+    channel = message.channel
     # the bot responds when you ping it
     if bot.user.mentioned_in(message) and not message.mention_everyone:
-        # if the message was a reply to a previous message:
-        # non-bot message -> AI response as normal
-        # bot KDA message -> check if winning/losing league and find player
-        # - if not able to -> AI response as normal
-        # bot AI response -> read up the chain and continue the conversation
-        normal_ai_response = True
-        if message.reference:
-            try:
-                prev_message = await channel.fetch_message(message.reference.message_id)
-                substrings = ["#", "just", "game", "KDA:"]
-                if prev_message.author == bot.user:
-                    if all(term in prev_message for term in substrings):
+        # shows the typing indicator
+        async with message.channel.typing():
+            # if the message was a reply to a previous message:
+            # non-bot message -> AI response as normal
+            # bot KDA message -> check if winning/losing league and find player
+            # - if not able to -> AI response as normal
+            # bot AI response -> read up the chain and continue the conversation
+            normal_ai_response = True
+            conversation = [{"role": "user", "content": message.content}]
+            if message.reference:
+                try:
+                    prev_message = await channel.fetch_message(message.reference.message_id)
+                # perhaps the previous message is actually deleted, so it can't be fetched
+                except discord.NotFound:
+                    print_to_log("WARNING", "Could not find message that was replied to")
+                    prev_message = None
+                # we need to first affirm that the previous message is actually from the bot
+                if prev_message and prev_message.author == bot.user:
+                    key_substrings = ["#", "just", "game", "KDA:"]
+                    if all(term in prev_message.content for term in key_substrings):
                         normal_ai_response = False
                         # do the winning/losing league check here
+                        # await investigate_player()
+                    # begin searching up to assemble the whole conversation
                     else:
-                        should_prev_message_be_from_bot = True
-                        conversation = []
-                        while should_prev_message_be_from_bot == prev_message.author:
+                        # TODO -- extend the following code to have the capability to process long bot responses split into multiple messages
+                        should_prev_message_author_be_bot = True
+                        while prev_message and should_prev_message_author_be_bot == (prev_message.author == bot.user):
                             curr_message = prev_message
-                            try:
-                                prev_message = await channel.fetch_message(prev_message.reference.message_id)
-                            except discord.NotFound:
-                                print_to_log("WARNING", "Could not find message that was replied to, breaking search")
+                            if prev_message.reference:
+                                try:
+                                    prev_message = await channel.fetch_message(prev_message.reference.message_id)
+                                except discord.NotFound:
+                                    print_to_log("WARNING", "Could not find message that was replied to")
+                                    prev_message = None
+                            else:
+                                prev_message = None
+                            if should_prev_message_author_be_bot:
+                                conversation = [{"role": "assistant", "content": curr_message.content}] + conversation
+                            else:
+                                conversation = [{"role": "user", "content": curr_message.content}] + conversation
+                            should_prev_message_author_be_bot = not should_prev_message_author_be_bot
 
-            except discord.NotFound:
-                print_to_log("WARNING", "Could not find message that was replied to")
-
-
-
-
-        # clean the message: remove the <@ID> mention and leading/trailing whitespace
-        user_query = message.content.replace(f'<@{bot.user.id}>', '').strip()
-
-        if not user_query:
-            await message.channel.send(f"what do you want {message.author.mention}")
-            return
-
-        # uses a typing indicator so users know the AI is thinking
-        async with message.channel.typing():
-            prompts = [
-                {"role": "system",
-                "content": """You are a discord bot whose role is to analyze match data and determine
-                whether specificied players are playing "winning league" (i.e., they are contributing
-                in a useful manner), or "losing league" (i.e., actively detrimental to the team ).
-                Aim to keep your responses relatively short (around 2000 words or less)."""},
-                {"role": "user", "content": user_query}
-            ]
-            response_text = get_groq_response(prompts)
-            # safety slice for discord's 2000 character limit for messages
-            # note: if the text seems to randomly truncate, it's because it's
-            # exceeding the token limit in the LLM query
-            while len(response_text) > 1985:
-                remainder_text = response_text[1985:]
-                await message.channel.send(response_text[:1985] + " ...(cont.)")
-                # !! perhaps this should be a reply chain
-                response_text = remainder_text
-            await message.channel.send(response_text)
+            if normal_ai_response:
+                conversation = [{"role": "system", "content": prompt_2}] + conversation
+                print(conversation)
+                response_text = await get_groq_response(conversation)
+                await send_a_long_message_in_multiple_parts(channel, response_text, message)
 
         # lets the bot process other commands? idk if it's necessary since there are no text (non-slash) commands yet
         await bot.process_commands(message)
