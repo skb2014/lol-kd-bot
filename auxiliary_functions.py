@@ -12,9 +12,9 @@ import inspect
 # and one with only "higher level" log stuff which is easier to read
 logger = logging.getLogger('bot')
 logger.setLevel(logging.DEBUG)
-full_info_handler = logging.FileHandler(filename='full_info.log', encoding='utf-8', mode='w')
+full_info_handler = logging.FileHandler(filename='logs/full_info.log', encoding='utf-8', mode='w')
 full_info_handler.setLevel(logging.DEBUG)
-important_stuff_handler = logging.FileHandler(filename='important_stuff.log', encoding='utf-8', mode='w')
+important_stuff_handler = logging.FileHandler(filename='logs/important_stuff.log', encoding='utf-8', mode='w')
 important_stuff_handler.setLevel(logging.INFO)
 logger.addHandler(full_info_handler)
 logger.addHandler(important_stuff_handler)
@@ -115,3 +115,10 @@ async def get_groq_response(all_prompts: list[dict[str, str]]) -> str:
 
     except Exception as e:
         return f"Error: {e}"
+
+# prompts for groq
+with open("prompts/prompt_1.txt", mode="r") as f:
+    prompt_1 = f.read()
+
+with open("prompts/prompt_2.txt", mode="r") as f:
+    prompt_2 = f.read()

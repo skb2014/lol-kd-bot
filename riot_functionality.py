@@ -27,7 +27,7 @@ async def get_puuid_from_riot_id(riot_id):
 async def get_latest_match_id(puuid):
     """Gets the match ID of the most recent match that the player with the specified PUUID played"""
     if puuid is None:
-        logger.warning(f"{get_latest_match_id.__name__} -- PUUID is None")
+        print_to_log("WARNING", "PUUID is None")
         return None
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?start=0&count=1&api_key={riot_api_key}"
     data = await get_http_response(url)
@@ -39,7 +39,7 @@ async def get_latest_match_id(puuid):
 
 
 async def get_match_data(match_id):
-    print("Finding match data...")
+    print_to_log("INFO", f"Getting match data for match ID: {match_id}")
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}?api_key={riot_api_key}"
     data = await get_http_response(url)
     if data:
@@ -49,11 +49,15 @@ async def get_match_data(match_id):
         return None
 
 
+async def glean_useful_match_data(match_id):
+    matches_data_raw = await read_json_file("jsons/matches_data_raw.json")
+    raw_match_data = matches_data_raw[match_id]
+
+
 async def get_kda_from_match(puuid, match_id) -> dict | None:
-    """Gets the KDA of the player with the specified PUUID in their most recent match, returned as a dictionary with keys 'kills', 'deaths', 'assists'"""
+    """Gets the KDA of the player with the specified PU`UID in their most recent match, returned as a dictionary with keys 'kills', 'deaths', 'assists'"""
     try:
-        matches = await read_json_file("matches.json")
-        # TODO: KEY ERROR -- NONE (THIS IS POSSIBLY THE SOURCE OF ERROR?)
+        matches = await read_json_file("jsons/matches_data_raw.json")
         match_data = matches[match_id]
         player_index = match_data['metadata']['participants'].index(puuid)
         participants = match_data['info']['participants']
@@ -111,3 +115,6 @@ async def calc_weakside(participants, match_id, team_id, position):
     strongsided = (position == "TOP" and topside >= botside) or (position == "BOTTOM" and botside >= topside)
     side_str = f"**strongsided** ({max(top_p, bot_p)}%)" if strongsided else f"**weaksided** ({min(top_p, bot_p)}%)"
     return f"They were {side_str}. "
+
+async def get_relevant_information_from_match_so_AI_can_determine_winning_or_losing_league(player_name):
+    pass

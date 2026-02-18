@@ -10,12 +10,14 @@ venv/
 
 # log files
 *.log
+logs
 
 # local folder that python might create
 __pycache__/
 
 # for now, all data is stored locally
 *.json
+jsons
 
 # I have a script for testing the bot which doesn't run the update matches loop
 # it doesn't actually matter if it gets pushed to the repo or not but considering it should never run on the Pi,
