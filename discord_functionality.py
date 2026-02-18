@@ -41,8 +41,8 @@ async def send_a_long_message_in_multiple_parts(channel: discord.TextChannel, co
     # exceeding the token limit in the LLM query
     while len(content) > 1985:
         remainder_text = content[1985:]
-        await channel.send(content[:1985] + " ...(cont.)", reference=message_to_reply_to)
-        # !! perhaps this should be a reply chain
+        # updates message_to_reply_to to the message it just sent, so it can chain replies
+        message_to_reply_to = await channel.send(content[:1985] + " ...(cont.)", reference=message_to_reply_to)
         content = remainder_text
     await channel.send(content, reference=message_to_reply_to)
 
@@ -71,18 +71,16 @@ async def on_message(message: discord.Message):
                 except discord.NotFound:
                     print_to_log("WARNING", "Could not find message that was replied to")
                     prev_message = None
-                # we need to first affirm that the previous message is actually from the bot
-                if prev_message and prev_message.author == bot.user:
+                if prev_message:
+                    # check if it's just a KDA message
                     key_substrings = ["#", "just", "game", "KDA:"]
-                    if all(term in prev_message.content for term in key_substrings):
+                    if prev_message.author == bot.user and all(term in prev_message.content for term in key_substrings):
                         normal_ai_response = False
                         # do the winning/losing league check here
                         # await investigate_player()
                     # begin searching up to assemble the whole conversation
                     else:
-                        # TODO -- extend the following code to have the capability to process long bot responses split into multiple messages
-                        should_prev_message_author_be_bot = True
-                        while prev_message and should_prev_message_author_be_bot == (prev_message.author == bot.user):
+                        while prev_message:
                             curr_message = prev_message
                             if prev_message.reference:
                                 try:
@@ -92,15 +90,14 @@ async def on_message(message: discord.Message):
                                     prev_message = None
                             else:
                                 prev_message = None
-                            if should_prev_message_author_be_bot:
-                                conversation = [{"role": "assistant", "content": curr_message.content}] + conversation
+                            if curr_message.author == bot.user:
+                                role = "assistant"
                             else:
-                                conversation = [{"role": "user", "content": curr_message.content}] + conversation
-                            should_prev_message_author_be_bot = not should_prev_message_author_be_bot
+                                role = "user"
+                            conversation = [{"role": role, "content": curr_message.content}] + conversation
 
             if normal_ai_response:
                 conversation = [{"role": "system", "content": prompt_2}] + conversation
-                print(conversation)
                 response_text = await get_groq_response(conversation)
                 await send_a_long_message_in_multiple_parts(channel, response_text, message)
 

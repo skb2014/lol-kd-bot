@@ -55,9 +55,10 @@ async def glean_useful_match_data(match_id):
 
 
 async def get_kda_from_match(puuid, match_id) -> dict | None:
-    """Gets the KDA of the player with the specified PU`UID in their most recent match, returned as a dictionary with keys 'kills', 'deaths', 'assists'"""
+    """Gets the KDA of the player with the specified PUUID in their most recent match, returned as a dictionary with keys 'kills', 'deaths', 'assists'"""
     try:
         matches = await read_json_file("jsons/matches_data_raw.json")
+        # TODO -- THE FOLLOWING LINE KEEPS CAUSING ERRORS AND I DONT KNOW WHY
         match_data = matches[match_id]
         player_index = match_data['metadata']['participants'].index(puuid)
         participants = match_data['info']['participants']
@@ -116,5 +117,5 @@ async def calc_weakside(participants, match_id, team_id, position):
     side_str = f"**strongsided** ({max(top_p, bot_p)}%)" if strongsided else f"**weaksided** ({min(top_p, bot_p)}%)"
     return f"They were {side_str}. "
 
-async def get_relevant_information_from_match_so_AI_can_determine_winning_or_losing_league(player_name):
+async def get_relevant_information_from_match_so_ai_can_determine_winning_or_losing_league(player_name):
     pass
