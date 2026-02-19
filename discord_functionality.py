@@ -105,8 +105,7 @@ async def on_message(message: discord.Message):
         await bot.process_commands(message)
 
 
-@bot.tree.command(name="add_channel",
-                  description="Registers this channel to the bot, allowing you to add players to be tracked")
+@bot.tree.command(name="add_channel", description="Registers this channel to the bot, allowing you to add players to be tracked")
 async def add_channel(interaction: discord.Interaction):
     # JSON keys must be strings, not ints
     channel_id = str(interaction.channel.id)
@@ -202,26 +201,25 @@ async def remove_player_from_file(player_name, channel_id):
     return f"{player_name} removed successfully!"
 
 
-@bot.tree.command(name="add_player",
-                  description="Adds a player to be tracked in this channel (channel must be registered")
+@bot.tree.command(name="add_player", description="Adds a player to be tracked in this channel (channel must be registered")
 async def add_player(interaction: discord.Interaction, player_name: str):
     channel_id = str(interaction.channel.id)
     result = await add_player_to_file(player_name, channel_id)
     await interaction.response.send_message(result)
 
 
-@bot.tree.command(name="remove_player",
-                  description="Removes a player from being tracked in this channel (channel must be registered)")
+async def player_autocomplete(interaction: discord.Interaction, current: str):
+    players = await read_json_file("jsons/players.json")
+    player_names = list(players.keys())
+    return [app_commands.Choice(name=name, value=name) for name in player_names if current.lower() in name.lower()][:25]
+
+
+@bot.tree.command(name="remove_player", description="Removes a player from being tracked in this channel (channel must be registered)")
+@app_commands.autocomplete(player_name=player_autocomplete)
 async def remove_player(interaction: discord.Interaction, player_name: str):
     channel_id = str(interaction.channel.id)
     result = await remove_player_from_file(player_name, channel_id)
     await interaction.response.send_message(result)
-
-
-async def player_autocomplete(_: discord.Interaction, current: str):
-    players = await read_json_file("jsons/players.json")
-    player_names = list(players.keys())
-    return [app_commands.Choice(name=name, value=name) for name in player_names if current.lower() in name.lower()][:25]
 
 
 @bot.tree.command(name="investigate_player", description="Checks player's most recent game to determine winning/losing league")
