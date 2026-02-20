@@ -22,10 +22,6 @@ This bot tracks League of Legends players, posting their KDAs (and some other in
 /investigate_player -- checks a player's most recent match to see if they played winning/losing league
 // NOTE: you can also invoke this by replying to an automated KDA message and asking the bot to judge the player
 
-a
-
-
-
 /clear_all_data -- clears all channel, player, and match data from the bot's storage
 
 

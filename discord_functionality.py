@@ -76,8 +76,18 @@ async def on_message(message: discord.Message):
                     key_substrings = ["#", "just", "game", "KDA:"]
                     if prev_message.author == bot.user and all(term in prev_message.content for term in key_substrings):
                         normal_ai_response = False
-                        # do the winning/losing league check here
-                        # await investigate_player()
+                        channels = await read_json_file("jsons/channels.json")
+                        player_names = channels[str(channel.id)]["players"]
+                        conversation = [{"role": "assistant", "content": prev_message.content}] + conversation
+                        conversation_with_player_list = [{"role": "system", "content": prompt_1}] + conversation
+                        conversation_with_player_list = conversation_with_player_list + [{"role": "user", "content": f"Players: {player_names}"}]
+                        response_text = await get_groq_response(conversation_with_player_list)
+                        if "Yes," in response_text:
+                            # perform the winning/losing league analysis here
+                            riot_id = response_text[5:]
+                            await channel.send(f"investigating {riot_id}...")
+                        else:
+                            await channel.send("Sorry, I'm confused")
                     # begin searching up to assemble the whole conversation
                     else:
                         while prev_message:
