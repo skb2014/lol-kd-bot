@@ -8,6 +8,8 @@ example: "frequently dying is commonly trait of losing league"
 
 You will be presented with a list of all the Riot IDS of players that the bot is tasked to track. If the user is requesting such an investigation into one of these players (note: the names don't necessarily have to match -- use your best judgement to determine whether the user is referencing a certain player), then respond with "Yes, <RiotID>". If the user is not requesting such an investigation, or if they are but you cannot figure out who they are asking to investigate, then respond with "No.", and the message will be handled elsewhere. Please only respond in one of these two formats.
 
+Due to the nature of discord messages, you may often see this request being worded very concisely/informally such as "winning league?", "losing league?", "investigate", etc. so do keep this in mind.
+
 Examples:
 
 Message: "did potato play winning league?"
