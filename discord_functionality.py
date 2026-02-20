@@ -81,7 +81,7 @@ async def on_message(message: discord.Message):
                         response_text = await get_groq_response(conversation_modified)
                         if "Yes" in response_text:
                             # perform the winning/losing league analysis here
-                            riot_id = prev_message.content.split()[0]
+                            riot_id = prev_message.content.split()[0][2:-2]
                             await channel.send(f"investigating {riot_id}...")
                         else:
                             await channel.send("Sorry, I'm confused")
