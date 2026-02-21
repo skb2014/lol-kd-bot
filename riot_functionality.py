@@ -115,7 +115,7 @@ async def get_match_data(match_id):
                 champion_name = "Xin Zhao"
             case _:
                 champion_name = player["championName"]
-        filtered_data["players"][player_name]["champion"] = player["championName"]  # and then modify this line ofc
+        filtered_data["players"][player_name]["champion"] = champion_name
         match player["teamPosition"]:
             case "TOP":
                 role = "TOP"
