@@ -65,34 +65,56 @@ async def get_match_data(match_id):
             filtered_data["players"][player_name]["result"] = "won"
         else:
             filtered_data["players"][player_name]["result"] = "lost"
-        # TODO -- ANDREW!! OR SHREYES!! MAKE SURE THE FOLLOWING CODE WORKS FOR ALL CHAMPIONS! (I could not be bothered)
-        # match player["championName"]:
-        #     case "Belveth":
-        #         champion_name = "Bel'veth"
-        #     case "Chogath":
-        #         champion_name = "Cho'Gath"
-        #     # potentially DrMundo?
-        #     case "Ksante":
-        #         champion_name = "K'sante"
-        #     case "Kaisa":
-        #         champion_name = "Kai'sa"
-        #     case "Kayn":
-        #         if player["championTransform"] == 0:
-        #             champion_name = "Kayn"
-        #         elif player["championTransform"] == 1:
-        #             champion_name = "Kayn (Rhaast)"
-        #         else:
-        #             champion_name = "Kayn (Shadow Assassin)"
-        #     case "Kogmaw":
-        #         champion_name = "Kog'Maw"
-        #     # potentially MasterYi?
-        #     # potentially NunuWillump?
-        #     case "Reksai":
-        #         champion_name = "Rek'Sai"
-        #     case "Velkoz":
-        #         champion_name = "Vel'Koz"
-        #     case _:
-        #         champion_name = player["championName"]
+        match player["championName"]:
+            case "AurelionSol":
+                champion_name = "Aurelion Sol"
+            case "Belveth":
+                champion_name = "Bel'veth"
+            case "Chogath":
+                champion_name = "Cho'Gath"
+            case "DrMundo":
+                champion_name = "Dr. Mundo"
+            case "JarvanIV":
+                champion_name = "Jarvan IV"
+            case "Kaisa":
+                champion_name = "Kai'sa"
+            case "Kayn":
+                if player["championTransform"] == 0:
+                    champion_name = "Kayn"
+                elif player["championTransform"] == 1:
+                    champion_name = "Kayn (Rhaast)"
+                else:
+                    champion_name = "Kayn (Shadow Assassin)"
+            case "Khazix":
+                champion_name = "Kha'zix"
+            case "KogMaw":
+                champion_name = "Kog'Maw"
+            case "KSante":
+                champion_name = "K'Sante"
+            case "Leblanc":
+                champion_name = "LeBlanc"
+            case "LeeSin":
+                champion_name = "Lee Sin"
+            case "MasterYi":
+                champion_name = "Master Yi"
+            case "MissFortune":
+                champion_name = "Miss Fortune"
+            case "MonkeyKing":
+                champion_name = "Wukong"
+            case "Nunu":
+                champion_name = "Nunu & Willump"
+            case "RekSai":
+                champion_name = "Rek'Sai"
+            case "TahmKench":
+                champion_name = "Tahm Kench"
+            case "TwistedFate":
+                champion_name = "Twisted Fate"
+            case "Velkoz":
+                champion_name = "Vel'Koz"
+            case "XinZhao":
+                champion_name = "Xin Zhao"
+            case _:
+                champion_name = player["championName"]
         filtered_data["players"][player_name]["champion"] = player["championName"]  # and then modify this line ofc
         match player["teamPosition"]:
             case "TOP":
@@ -105,7 +127,6 @@ async def get_match_data(match_id):
                 role = "BOT"
             case "UTILITY":
                 role = "SUPP"
-            # is this necessary?
             case _:
                 role = ""
         filtered_data["players"][player_name]["role"] = role
@@ -140,16 +161,16 @@ async def get_important_match_data_for_most_recent_game(player_name: str) -> dic
         # sided = await calc_weakside(participants, match_id, player_data["teamId"], player_position) if sidelane else ""
         team = player_data['team']
         role = player_data['role']
-        opponent_champion = ""
+        opponent = ""
         for player in match_data["players"]:
-            if match_data["players"][player]["team"] != team and match_data["players"][player]["role"] == role:
-                opponent_champion = f"vs. {match_data["players"][player]["champion"]}"
+            if match_data["players"][player]["team"] != team and role and match_data["players"][player]["role"] == role:
+                opponent = f"vs. {match_data["players"][player]["champion"]}"
         return {
             'queue_type': match_data['queue_type'],
             'result': player_data['result'],
             'champion': player_data['champion'],
             'role': player_data['role'],
-            'opponent': opponent_champion,
+            'opponent': opponent,
             'kills': player_data['kills'],
             'deaths': player_data['deaths'],
             'assists': player_data['assists'],
