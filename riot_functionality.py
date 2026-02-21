@@ -156,7 +156,7 @@ async def get_important_match_data_for_most_recent_game(player_name: str) -> dic
             # 'sided': sided
         }
     except (TypeError, KeyError) as e:
-        print_to_log("ERROR", f"error in finding kda: {e}")
+        print_to_log("ERROR", f"error in getting important match data: {e}")
         return None
 
 

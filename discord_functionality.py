@@ -262,9 +262,12 @@ async def clear_all_data(interaction: discord.Interaction):
 
 async def automated_kda_message(player_name) -> str:
     important_match_data = await get_important_match_data_for_most_recent_game(player_name)
-    text = f"**{player_name}** just **{important_match_data["result"]}** a **{important_match_data["queue_type"]}** game "
-    text += f"playing **{important_match_data["champion"]} {important_match_data["role"]}** {important_match_data["opponent"]}. "
-    text += f"KDA: **{important_match_data['kills']}/{important_match_data['deaths']}/{important_match_data['assists']}**"
+    if important_match_data is None:
+        text = f"Error getting KDA for {player_name}"
+    else:
+        text = f"**{player_name}** just **{important_match_data["result"]}** a **{important_match_data["queue_type"]}** game "
+        text += f"playing **{important_match_data["champion"]} {important_match_data["role"]}** {important_match_data["opponent"]}. "
+        text += f"KDA: **{important_match_data['kills']}/{important_match_data['deaths']}/{important_match_data['assists']}**"
     return text
 
 @tasks.loop(seconds=60)
