@@ -69,7 +69,7 @@ async def get_match_data(match_id):
             case "AurelionSol":
                 champion_name = "Aurelion Sol"
             case "Belveth":
-                champion_name = "Bel'veth"
+                champion_name = "Bel'Veth"
             case "Chogath":
                 champion_name = "Cho'Gath"
             case "DrMundo":
@@ -77,7 +77,7 @@ async def get_match_data(match_id):
             case "JarvanIV":
                 champion_name = "Jarvan IV"
             case "Kaisa":
-                champion_name = "Kai'sa"
+                champion_name = "Kai'Sa"
             case "Kayn":
                 if player["championTransform"] == 0:
                     champion_name = "Kayn"
@@ -86,7 +86,7 @@ async def get_match_data(match_id):
                 else:
                     champion_name = "Kayn (Shadow Assassin)"
             case "Khazix":
-                champion_name = "Kha'zix"
+                champion_name = "Kha'Zix"
             case "KogMaw":
                 champion_name = "Kog'Maw"
             case "KSante":
