@@ -41,37 +41,119 @@ async def get_latest_match_id(puuid):
 async def get_match_data(match_id):
     print_to_log("INFO", f"Getting match data for match ID: {match_id}")
     url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}?api_key={riot_api_key}"
-    data = await get_http_response(url)
-    if data:
-        return data
-    else:
+    raw_data = await get_http_response(url)
+    if not raw_data:
         print_to_log("WARNING", f"Could not get match data for match ID: {match_id}")
         return None
+    filtered_data = {}
+    queue_types = {
+        400: "Draft Pick", 420: "Ranked Solo/Duo", 440: "Ranked Flex", 450: "ARAM",
+        490: "Quickplay", 700: "SR Clash", 720: "ARAM Clash", 900: "ARURF",
+        1710: "Arena", 1900: "Pick URF", 2400: "ARAM: Mayhem"
+    }
+    filtered_data["queue_type"] = queue_types[raw_data["info"]["queueId"]]
+    filtered_data["duration"] = raw_data["info"]["gameDuration"]
+    filtered_data["players"] = {}
+    for player in raw_data["info"]["participants"]:
+        player_name = player["riotIdGameName"] + "#" + player["riotIdTagline"]
+        filtered_data["players"][player_name] = {}
+        if player["teamId"] == 100:
+            filtered_data["players"][player_name]["team"] = "blue"
+        else:
+            filtered_data["players"][player_name]["team"] = "red"
+        if player["win"]:
+            filtered_data["players"][player_name]["result"] = "won"
+        else:
+            filtered_data["players"][player_name]["result"] = "lost"
+        # TODO -- ANDREW!! OR SHREYES!! MAKE SURE THE FOLLOWING CODE WORKS FOR ALL CHAMPIONS! (I could not be bothered)
+        # match player["championName"]:
+        #     case "Belveth":
+        #         champion_name = "Bel'veth"
+        #     case "Chogath":
+        #         champion_name = "Cho'Gath"
+        #     # potentially DrMundo?
+        #     case "Ksante":
+        #         champion_name = "K'sante"
+        #     case "Kaisa":
+        #         champion_name = "Kai'sa"
+        #     case "Kayn":
+        #         if player["championTransform"] == 0:
+        #             champion_name = "Kayn"
+        #         elif player["championTransform"] == 1:
+        #             champion_name = "Kayn (Rhaast)"
+        #         else:
+        #             champion_name = "Kayn (Shadow Assassin)"
+        #     case "Kogmaw":
+        #         champion_name = "Kog'Maw"
+        #     # potentially MasterYi?
+        #     # potentially NunuWillump?
+        #     case "Reksai":
+        #         champion_name = "Rek'Sai"
+        #     case "Velkoz":
+        #         champion_name = "Vel'Koz"
+        #     case _:
+        #         champion_name = player["championName"]
+        filtered_data["players"][player_name]["champion"] = player["championName"]  # and then modify this line ofc
+        match player["teamPosition"]:
+            case "TOP":
+                role = "TOP"
+            case "JUNGLE":
+                role = "JG"
+            case "MIDDLE":
+                role = "MID"
+            case "BOTTOM":
+                role = "BOT"
+            case "UTILITY":
+                role = "SUPP"
+            # is this necessary?
+            case _:
+                role = ""
+        filtered_data["players"][player_name]["role"] = role
+        filtered_data["players"][player_name]["kills"] = player["kills"]
+        filtered_data["players"][player_name]["deaths"] = player["deaths"]
+        filtered_data["players"][player_name]["assists"] = player["assists"]
+        filtered_data["players"][player_name]["level"] = player["champLevel"]
+        filtered_data["players"][player_name]["gold"] = player["goldEarned"]
+        filtered_data["players"][player_name]["cs"] = player["totalMinionsKilled"]
+        filtered_data["players"][player_name]["damage_dealt_to_champions"] = player["totalDamageDealtToChampions"]
+        filtered_data["players"][player_name]["damage_dealt_to_objectives"] = player["damageDealtToObjectives"]
+        # for the following number, I don't know if "buildings" encompasses turrets or turret damage needs to be added separately
+        filtered_data["players"][player_name]["damage_dealt_to_structures"] = player["damageDealtToBuildings"]
+        filtered_data["players"][player_name]["damage_healed_and_shielded_to_allies"] = player["totalDamageShieldedOnTeammates"] + player["totalHealsOnTeammates"]
+        filtered_data["players"][player_name]["vision_score"] = player["visionScore"]
+        # TODO -- ANDREW!! DO YOU THINK THIS IS ALL THE INFO WE NEED??
+    return filtered_data
 
 
-async def glean_useful_match_data(match_id):
-    matches_data_raw = await read_json_file("jsons/matches_data_raw.json")
-    raw_match_data = matches_data_raw[match_id]
-
-
-async def get_kda_from_match(puuid, match_id) -> dict | None:
+async def get_important_match_data_for_most_recent_game(player_name: str) -> dict | None:
     """Gets the KDA of the player with the specified PUUID in their most recent match, returned as a dictionary with keys 'kills', 'deaths', 'assists'"""
     try:
-        matches = await read_json_file("jsons/matches_data_raw.json")
+        players = await read_json_file("jsons/players.json")
+        matches = await read_json_file("jsons/matches.json")
+        puuid = players[player_name]["puuid"]
+        match_id = players[player_name]["most_recent_match_id"]
         # TODO -- THE FOLLOWING LINE KEEPS CAUSING ERRORS AND I DONT KNOW WHY
         match_data = matches[match_id]
-        player_index = match_data['metadata']['participants'].index(puuid)
-        participants = match_data['info']['participants']
-        player_data = participants[player_index]
-        player_position = player_data['teamPosition']
-        sidelane = player_position not in ["UTILITY", "JUNGLE", "MIDDLE"]
-        sided = await calc_weakside(participants, match_id, player_data["teamId"], player_position) if sidelane else ""
+        player_data = match_data["players"][player_name]
+        sidelane = player_data["role"] not in ["JG", "MID", "SUPP"]
+        # TODO: ANDRREW!! FIX THE FOLLOWING CODE!! YOU MIGHT NEED TO GET ALL THE RAW PARTICIPANTS DATA AGAIN IM NGL
+        # sided = await calc_weakside(participants, match_id, player_data["teamId"], player_position) if sidelane else ""
+        team = player_data['team']
+        role = player_data['role']
+        opponent_champion = ""
+        for player in match_data["players"]:
+            if match_data["players"][player]["team"] != team and match_data["players"][player]["role"] == role:
+                opponent_champion = f"vs. {match_data["players"][player]["champion"]}"
         return {
+            'queue_type': match_data['queue_type'],
+            'result': player_data['result'],
+            'champion': player_data['champion'],
+            'role': player_data['role'],
+            'opponent': opponent_champion,
             'kills': player_data['kills'],
             'deaths': player_data['deaths'],
             'assists': player_data['assists'],
-            'lost': player_data['nexusLost'],
-            'sided': sided
+            # 'sided': sided
         }
     except (TypeError, KeyError) as e:
         print_to_log("ERROR", f"error in finding kda: {e}")

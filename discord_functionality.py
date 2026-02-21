@@ -35,16 +35,16 @@ async def on_ready():
     print("Bot is running...")
 
 
-async def send_a_long_message_in_multiple_parts(channel: discord.TextChannel, content: str, message_to_reply_to: discord.Message | None = None):
+async def send_a_long_message_in_multiple_parts(content: str, reference: discord.Message | None = None):
     # because discord has a 2000 character limit for non nitro members
     # note: if the text seems to randomly truncate, it's because it's
     # exceeding the token limit in the LLM query
     while len(content) > 1985:
         remainder_text = content[1985:]
         # updates message_to_reply_to to the message it just sent, so it can chain replies
-        message_to_reply_to = await channel.send(content[:1985] + " ...(cont.)", reference=message_to_reply_to)
+        reference = await reference.channel.send(content[:1985] + " ...(cont.)", reference=reference)
         content = remainder_text
-    await channel.send(content, reference=message_to_reply_to)
+    await reference.channel.send(content, reference=reference)
 
 
 @bot.event
@@ -52,7 +52,6 @@ async def on_message(message: discord.Message):
     # ignore messages sent by the bot itself to avoid infinite loops
     if message.author == bot.user:
         return
-    channel = message.channel
     # the bot responds when you ping it
     if bot.user.mentioned_in(message) and not message.mention_everyone:
         # shows the typing indicator
@@ -66,7 +65,7 @@ async def on_message(message: discord.Message):
             conversation = [{"role": "user", "content": message.content}]
             if message.reference:
                 try:
-                    prev_message = await channel.fetch_message(message.reference.message_id)
+                    prev_message = await message.channel.fetch_message(message.reference.message_id)
                 # perhaps the previous message is actually deleted, so it can't be fetched
                 except discord.NotFound:
                     print_to_log("WARNING", "Could not find message that was replied to")
@@ -82,16 +81,17 @@ async def on_message(message: discord.Message):
                         if "Yes" in response_text:
                             # perform the winning/losing league analysis here
                             riot_id = prev_message.content.split()[0][2:-2]
-                            await channel.send(f"investigating {riot_id}...")
+                            text = await investigate_player(riot_id)
+                            await send_a_long_message_in_multiple_parts(text, reference=message)
                         else:
-                            await channel.send("Sorry, I'm confused")
+                            await message.channel.send("Sorry, I'm confused", reference=message)
                     # begin searching up to assemble the whole conversation
                     else:
                         while prev_message:
                             curr_message = prev_message
                             if prev_message.reference:
                                 try:
-                                    prev_message = await channel.fetch_message(prev_message.reference.message_id)
+                                    prev_message = await message.channel.fetch_message(prev_message.reference.message_id)
                                 except discord.NotFound:
                                     print_to_log("WARNING", "Could not find message that was replied to")
                                     prev_message = None
@@ -104,9 +104,9 @@ async def on_message(message: discord.Message):
                             conversation = [{"role": role, "content": curr_message.content}] + conversation
 
             if normal_ai_response:
-                conversation = [{"role": "system", "content": prompt_2}] + conversation
+                conversation = [{"role": "system", "content": prompt_3}] + conversation
                 response_text = await get_groq_response(conversation)
-                await send_a_long_message_in_multiple_parts(channel, response_text, message)
+                await send_a_long_message_in_multiple_parts(response_text, message)
 
         # lets the bot process other commands? idk if it's necessary since there are no text (non-slash) commands yet
         await bot.process_commands(message)
@@ -215,7 +215,7 @@ async def add_player(interaction: discord.Interaction, player_name: str):
     await interaction.response.send_message(result)
 
 
-async def player_autocomplete(interaction: discord.Interaction, current: str):
+async def player_autocomplete(_: discord.Interaction, current: str):
     players = await read_json_file("jsons/players.json")
     player_names = list(players.keys())
     return [app_commands.Choice(name=name, value=name) for name in player_names if current.lower() in name.lower()][:25]
@@ -229,10 +229,26 @@ async def remove_player(interaction: discord.Interaction, player_name: str):
     await interaction.response.send_message(result)
 
 
+async def investigate_player(player_name: str) -> str:
+    """actually performs the functioanlity of investigating a player"""
+    players = await read_json_file("jsons/players.json")
+    if player_name not in players:
+        return f"Player {player_name} not found!"
+    most_recent_match_id = players[player_name]["most_recent_match_id"]
+    matches = await read_json_file("jsons/matches.json")
+    match_data = matches[most_recent_match_id]
+    conversation = [{"role": "system", "content": prompt_2}]
+    conversation += [{"role": "user", "content": f"Player Name: {player_name}."}]
+    conversation += [{"role": "user", "content": f"Match Data: {match_data}."}]
+    response_text = await get_groq_response(conversation)
+    return response_text
+
+
 @bot.tree.command(name="investigate_player", description="Checks player's most recent game to determine winning/losing league")
 @app_commands.autocomplete(player_name=player_autocomplete)
-async def investigate_player(interaction: discord.Interaction, player_name: str):
-    await interaction.response.send_message(f"investigating {player_name}")
+async def investigate_player_command(interaction: discord.Interaction | discord.Message, player_name: str):
+    text = await investigate_player(player_name)
+    await interaction.response.send_message(text)
 
 
 @bot.tree.command(name="clear_all_data", description="Clears all data stored by the bot, including players and matches")
@@ -240,19 +256,16 @@ async def clear_all_data(interaction: discord.Interaction):
     """Use for debugging purposes, will probably be removed later"""
     await write_json_file("jsons/channels.json", {})
     await write_json_file("jsons/players.json", {})
-    await write_json_file("jsons/matches_data_raw.json", {})
+    await write_json_file("jsons/matches.json", {})
     await interaction.response.send_message("All data cleared successfully!")
 
 
-async def print_match_kda(channel_id, player_name, match_id):
-    players = await read_json_file("jsons/players.json")
-    puuid = players[player_name]["puuid"]
-    kda = await get_kda_from_match(puuid, match_id)
-    result = "lost" if kda["lost"] else "won"
-    channel = bot.get_channel(int(channel_id))
-    await channel.send(
-        f"**{player_name}** just **{result}** a game. {kda["sided"]} KDA: {kda["kills"]}/{kda["deaths"]}/{kda["assists"]}")
-
+async def automated_kda_message(player_name) -> str:
+    important_match_data = await get_important_match_data_for_most_recent_game(player_name)
+    text = f"**{player_name}** just **{important_match_data["result"]}** a **{important_match_data["queue_type"]}** game "
+    text += f"playing **{important_match_data["champion"]} {important_match_data["role"]}** {important_match_data["opponent"]}. "
+    text += f"KDA: **{important_match_data['kills']}/{important_match_data['deaths']}/{important_match_data['assists']}**"
+    return text
 
 @tasks.loop(seconds=60)
 async def update_matches_loop():
@@ -260,12 +273,12 @@ async def update_matches_loop():
     print_to_log("INFO", "Checking for new matches...")
 
     players = await read_json_file("jsons/players.json")
-    matches = await read_json_file("jsons/matches_data_raw.json")
+    matches = await read_json_file("jsons/matches.json")
     old_match_ids = set()
     for match_id in matches:
         old_match_ids.add(match_id)
     new_match_ids = set()
-    players_with_new_matches = dict()
+    players_with_new_matches = set()
     for player_name in players.keys():
         new_match_id = await get_latest_match_id(players[player_name]["puuid"])
         if new_match_id is None:
@@ -276,7 +289,7 @@ async def update_matches_loop():
         new_match_ids.add(new_match_id)
         if new_match_id != players[player_name]["most_recent_match_id"]:
             players[player_name]["most_recent_match_id"] = new_match_id
-            players_with_new_matches[player_name] = new_match_id
+            players_with_new_matches.add(player_name)
     await write_json_file("jsons/players.json", players)
     print_to_log("INFO", f"Players with new matches -- {players_with_new_matches}")
 
@@ -287,11 +300,13 @@ async def update_matches_loop():
     for match_id in match_ids_to_be_added:
         match_data = await get_match_data(match_id)
         matches[match_id] = match_data
-    await write_json_file("jsons/matches_data_raw.json", matches)
+    await write_json_file("jsons/matches.json", matches)
 
     channels = await read_json_file("jsons/channels.json")
     for channel_id in channels:
         for player_name in channels[channel_id]["players"]:
             if player_name in players_with_new_matches:
+                text = await automated_kda_message(player_name)
+                channel = await bot.fetch_channel(int(channel_id))
                 print_to_log("INFO", f"Sending KDA message for {player_name} in channel {channels[channel_id]["name"]}")
-                await print_match_kda(channel_id, player_name, players_with_new_matches[player_name])
+                await channel.send(text)

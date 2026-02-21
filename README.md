@@ -32,7 +32,7 @@ This bot tracks League of Legends players, posting their KDAs (and some other in
     
         - channels.json -- stores all tracked channels and which players are being tracked in those channels
     
-        - matches_data_raw.json -- stores all raw match data directly from the Riot API for all matches that at least one player has as their most recent match
+        - matches.json -- stores all useful match data for all matches that at least one player has as their most recent match
     
         - players.json -- stores all tracked players, their most recent match_id, and which channels they're in
     
