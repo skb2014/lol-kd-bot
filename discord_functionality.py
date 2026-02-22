@@ -261,13 +261,15 @@ async def clear_all_data(interaction: discord.Interaction):
 
 
 async def automated_kda_message(player_name) -> str:
-    important_match_data = await get_important_match_data_for_most_recent_game(player_name)
-    if important_match_data is None:
+    relevant_information = await get_relevant_information_from_match_so_ai_can_determine_winning_or_losing_league(player_name)
+    if relevant_information is None:
         text = f"Error getting KDA for {player_name}"
     else:
-        text = f"**{player_name}** just **{important_match_data["result"]}** a **{important_match_data["queue_type"]}** game "
-        text += f"playing **{important_match_data["champion"]} {important_match_data["role"]}** {important_match_data["opponent"]}. "
-        text += f"KDA: **{important_match_data['kills']}/{important_match_data['deaths']}/{important_match_data['assists']}**"
+        text = f"**{player_name}** just **{relevant_information["result"]}** a **{relevant_information["queue_type"]}** game "
+        text += f"playing **{relevant_information["champion"]} {relevant_information["role"]}** {relevant_information["opponent"]}. "
+        text += f"KDA: **{relevant_information['kills']}/{relevant_information['deaths']}/{relevant_information['assists']}**. "
+        if sided_text := relevant_information["sided"]:  # google "en walrus operator"
+            text += f"{sided_text}"
     return text
 
 @tasks.loop(seconds=60)

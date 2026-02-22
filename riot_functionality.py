@@ -7,7 +7,7 @@ riot_ids = getenv('RIOT_IDS').split(',')
 
 # in general, when a function is unable to return a proper output for whatever reason, it will resort to returning None
 
-async def get_puuid_from_riot_id(riot_id):
+async def get_puuid_from_riot_id(riot_id) -> str | None:
     """Gets the unique PUUID for an account using their Riot ID which looks like GameName#TagLine"""
     if len(riot_id.split('#')) == 2:
         game_name, tag_line = riot_id.split('#')
@@ -57,6 +57,8 @@ async def get_match_data(match_id):
     for player in raw_data["info"]["participants"]:
         player_name = player["riotIdGameName"] + "#" + player["riotIdTagline"]
         filtered_data["players"][player_name] = {}
+        puuid = await get_puuid_from_riot_id(player_name)
+        filtered_data["players"][player_name]["puuid"] = puuid
         if player["teamId"] == 100:
             filtered_data["players"][player_name]["team"] = "blue"
         else:
@@ -128,6 +130,7 @@ async def get_match_data(match_id):
             case "UTILITY":
                 role = "SUPP"
             case _:
+                # will be the value for games without roles such as ARAM, URF, etc.
                 role = ""
         filtered_data["players"][player_name]["role"] = role
         filtered_data["players"][player_name]["kills"] = player["kills"]
@@ -142,29 +145,34 @@ async def get_match_data(match_id):
         filtered_data["players"][player_name]["damage_dealt_to_structures"] = player["damageDealtToBuildings"]
         filtered_data["players"][player_name]["damage_healed_and_shielded_to_allies"] = player["totalDamageShieldedOnTeammates"] + player["totalHealsOnTeammates"]
         filtered_data["players"][player_name]["vision_score"] = player["visionScore"]
-        # TODO -- ANDREW!! DO YOU THINK THIS IS ALL THE INFO WE NEED??
+        # IS THIS ALL THE INFORMATION WE NEED? WHAT DO YOU THINK?
     return filtered_data
 
 
-async def get_important_match_data_for_most_recent_game(player_name: str) -> dict | None:
+async def get_relevant_information_from_match_so_ai_can_determine_winning_or_losing_league(player_name: str) -> dict | None:
     """Gets the KDA of the player with the specified PUUID in their most recent match, returned as a dictionary with keys 'kills', 'deaths', 'assists'"""
     try:
         players = await read_json_file("jsons/players.json")
         matches = await read_json_file("jsons/matches.json")
         puuid = players[player_name]["puuid"]
         match_id = players[player_name]["most_recent_match_id"]
-        # TODO -- THE FOLLOWING LINE KEEPS CAUSING ERRORS AND I DONT KNOW WHY
         match_data = matches[match_id]
         player_data = match_data["players"][player_name]
-        sidelane = player_data["role"] not in ["JG", "MID", "SUPP"]
-        # TODO: ANDRREW!! FIX THE FOLLOWING CODE!! YOU MIGHT NEED TO GET ALL THE RAW PARTICIPANTS DATA AGAIN IM NGL
-        # sided = await calc_weakside(participants, match_id, player_data["teamId"], player_position) if sidelane else ""
+        sided = ""
+        if match_data["queue_type"] in ["Draft Pick", "Ranked Solo/Duo", "Ranked Flex", "Quickplay", "SR Clash"]:
+            if player_data["role"] in ["TOP", "BOT"]:
+                jungle_player_puuid = None
+                for player_name in match_data["players"]:
+                    if match_data["players"][player_name]["team"] == player_data["team"] and match_data["players"][player_name]["role"] == "JG":
+                        jungle_player_puuid = match_data["players"][player_name]["puuid"]
+                top_or_bot = "TOP" if player_data["role"] == "TOP" else "BOT"
+                sided = await calc_weakside(match_id, jungle_player_puuid, top_or_bot)
         team = player_data['team']
         role = player_data['role']
         opponent = ""
-        for player in match_data["players"]:
-            if match_data["players"][player]["team"] != team and role and match_data["players"][player]["role"] == role:
-                opponent = f"vs. {match_data["players"][player]["champion"]}"
+        for player_name in match_data["players"]:
+            if match_data["players"][player_name]["team"] != team and role and match_data["players"][player_name]["role"] == role:
+                opponent = f"vs. {match_data["players"][player_name]["champion"]}"
         return {
             'queue_type': match_data['queue_type'],
             'result': player_data['result'],
@@ -174,22 +182,28 @@ async def get_important_match_data_for_most_recent_game(player_name: str) -> dic
             'kills': player_data['kills'],
             'deaths': player_data['deaths'],
             'assists': player_data['assists'],
-            # 'sided': sided
+            'sided': sided
         }
     except (TypeError, KeyError) as e:
         print_to_log("ERROR", f"error in getting important match data: {e}")
         return None
 
 
-async def find_jungle_positions(participants, match_id, team_id):
+async def find_jungle_positions(match_id, jungle_player_puuid):
+    if not jungle_player_puuid:
+        print_to_log("WARNING", f"No jungle_player_puuid was provided for match ID: {match_id}")
+        return None
     try:
-        jungle_id = next((p['puuid'] for p in participants if p['teamPosition'] == "JUNGLE" and p["teamId"] == team_id))
         url = f"https://{routing_region}.api.riotgames.com/lol/match/v5/matches/{match_id}/timeline?api_key={riot_api_key}"
         data = await get_http_response(url)
-        info = data['info']
+        if data:
+            info = data['info']
+        else:
+            print_to_log("WARNING", f"Could not get timeline data for match ID: {match_id}")
+            return None
 
         players = info['participants']
-        jg_participant_id = next((str(p['participantId']) for p in players if p['puuid'] == jungle_id))
+        jg_participant_id = next((str(p['participantId']) for p in players if p['puuid'] == jungle_player_puuid))
 
         # limit to 20 (approx when laning phase ends)
         return [
@@ -201,9 +215,10 @@ async def find_jungle_positions(participants, match_id, team_id):
         return None
 
 
-async def calc_weakside(participants, match_id, team_id, position):
-    positions = await find_jungle_positions(participants, match_id, team_id)
+async def calc_weakside(match_id: int, jungle_player_puuid: str, top_or_bot: str) -> str | None:
+    positions = await find_jungle_positions(match_id, jungle_player_puuid)
     if not positions:
+        print_to_log("WARNING", f"Could not find calculate weakside for match ID: {match_id}")
         return None
 
     total = len(positions)
@@ -216,9 +231,6 @@ async def calc_weakside(participants, match_id, team_id, position):
 
     top_p, bot_p = round((topside / total) * 100, 2), round((botside / total) * 100, 2)
     print_to_log("INFO", f"top_p: {top_p}, bot_p: {bot_p}")
-    strongsided = (position == "TOP" and topside >= botside) or (position == "BOTTOM" and botside >= topside)
-    side_str = f"**strongsided** ({max(top_p, bot_p)}%)" if strongsided else f"**weaksided** ({min(top_p, bot_p)}%)"
+    strongsided = (top_or_bot == "TOP" and topside >= botside) or (top_or_bot == "BOT" and botside >= topside)
+    side_str = f"**strongsided** ({max(top_p, bot_p)}% jungle proximity)" if strongsided else f"**weaksided** ({min(top_p, bot_p)}% jungle proximity)"
     return f"They were {side_str}. "
-
-async def get_relevant_information_from_match_so_ai_can_determine_winning_or_losing_league(player_name):
-    pass
