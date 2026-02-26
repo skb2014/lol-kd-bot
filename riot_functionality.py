@@ -63,7 +63,9 @@ async def get_match_data(match_id):
             filtered_data["players"][player_name]["team"] = "blue"
         else:
             filtered_data["players"][player_name]["team"] = "red"
-        if player["win"]:
+        if player["gameEndedInEarlySurrender"]:
+            filtered_data["players"][player_name]["result"] = "drew"
+        elif player["win"]:
             filtered_data["players"][player_name]["result"] = "won"
         else:
             filtered_data["players"][player_name]["result"] = "lost"
