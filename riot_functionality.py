@@ -142,7 +142,7 @@ async def get_match_data(match_id):
         filtered_data["players"][player_name]["gold"] = player["goldEarned"]
         filtered_data["players"][player_name]["cs"] = player["totalMinionsKilled"] + player["neutralMinionsKilled"] + player["wardsKilled"]
         filtered_data["players"][player_name]["damage_dealt_to_champions"] = player["totalDamageDealtToChampions"]
-        filtered_data["players"][player_name]["damage_dealt_to_objectives"] = player["damageDealtToObjectives"]
+        filtered_data["players"][player_name]["damage_dealt_to_epic_monsters"] = player["damageDealtToObjectives"] - player["damageDealtToBuildings"]
         # for the following number, I don't know if "buildings" encompasses turrets or turret damage needs to be added separately
         filtered_data["players"][player_name]["damage_dealt_to_structures"] = player["damageDealtToBuildings"]
         filtered_data["players"][player_name]["damage_healed_and_shielded_to_allies"] = player["totalDamageShieldedOnTeammates"] + player["totalHealsOnTeammates"]
