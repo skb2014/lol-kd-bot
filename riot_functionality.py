@@ -78,6 +78,8 @@ async def get_match_data(match_id):
                 champion_name = "Cho'Gath"
             case "DrMundo":
                 champion_name = "Dr. Mundo"
+            case "FiddleSticks":
+                champion_name = "Fiddlesticks"
             case "JarvanIV":
                 champion_name = "Jarvan IV"
             case "Kaisa":
