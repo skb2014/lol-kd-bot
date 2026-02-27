@@ -6,6 +6,12 @@
 This bot tracks League of Legends players, posting their KDAs (and some other information) in the discord channels (which they are registered to) whenever they finish playing a match. You can also discuss League of Legends related topics with the bot, and also "investigate" players to see if they play "winning league" or "losing league" in their last match.
 
 
+### Usage
+
+
+Set up the bot with the commands below. The bot automatically tracks all players registered in channels and sends automated messages containing the player's KDA (and some other information) in the channel whenever it detects that they played a new match. If you reply to one of these automated messages asking the bot to judge the player's performance, it will tell you if they played "winning league" or "losing league". You can also invoke this functionality by using the /investigate_player command. You can also converse with the bot by pinging it and replying to its messages. Note that the bot cannot reference game data when conversing with you. 
+
+
 ### Bot Commands
 
 

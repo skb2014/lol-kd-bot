@@ -251,13 +251,49 @@ async def investigate_player_command(interaction: discord.Interaction | discord.
     await interaction.response.send_message(text)
 
 
+class ConfirmView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=15) # Buttons disable after 15 seconds
+        self.value = None
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.green)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.value = True
+        self.stop() # Stop listening for more clicks
+        await interaction.response.edit_message(content="Confirmed!", view=None)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.red)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.value = False
+        self.stop()
+        await interaction.response.edit_message(content="Cancelled.", view=None)
+
+
 @bot.tree.command(name="clear_all_data", description="Clears all data stored by the bot, including players and matches")
 async def clear_all_data(interaction: discord.Interaction):
-    """Use for debugging purposes, will probably be removed later"""
-    await write_json_file("jsons/channels.json", {})
-    await write_json_file("jsons/players.json", {})
-    await write_json_file("jsons/matches.json", {})
-    await interaction.response.send_message("All data cleared successfully!")
+    """Clears all the JSON files -- only designated users can use"""
+    if interaction.user.name not in ["duckoverl0rd"]:
+        await interaction.response.send_message("Sorry, you don't have the permission to use this command")
+        return
+    view = ConfirmView()
+    await interaction.response.send_message(
+        "Are you sure you want to clear all stored data for this bot? This action cannot be undone.",
+        view=view,
+        ephemeral=True  # Only the user who called the command sees this
+    )
+
+    # Wait for the view to stop (either click or timeout)
+    await view.wait()
+
+    if view.value is None:
+        await interaction.followup.send(f"Timed out.")
+    elif view.value is True:
+        await write_json_file("jsons/channels.json", {})
+        await write_json_file("jsons/players.json", {})
+        await write_json_file("jsons/matches.json", {})
+        await interaction.followup.send(f"Successfully cleared all data!")
+    else:
+        await interaction.followup.send(f"HE CANCELLED IT!")
 
 
 async def automated_kda_message(player_name) -> str:
