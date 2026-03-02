@@ -217,14 +217,18 @@ async def remove_player(interaction: discord.Interaction, player_name: str):
 
 
 async def investigate_player(player_name: str) -> str:
-    """actually performs the functioanlity of investigating a player"""
+    """actually performs the functionality of investigating a player"""
     players = await read_json_file("jsons/players.json")
     if player_name not in players:
         return f"Player {player_name} not found!"
     most_recent_match_id = players[player_name]["most_recent_match_id"]
     matches = await read_json_file("jsons/matches.json")
-    match_data = matches[most_recent_match_id]
-    conversation = [{"role": "system", "content": prompt_2}]
+    if most_recent_match_id in matches:
+        match_data = matches[most_recent_match_id]
+    else:
+        print_to_log("WARNING", f"Could not find match data for player {player_name}")
+        return f"Could not find match data for player {player_name}"
+    conversation = [{"role": "system", "content": prompt_1}]
     conversation += [{"role": "user", "content": f"Player Name: {player_name}."}]
     conversation += [{"role": "user", "content": f"Match Data: {match_data}."}]
     response_text = await get_groq_response(conversation)
