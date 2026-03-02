@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 from riot_functionality import *
+from datetime import datetime, timezone, timedelta
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -56,57 +57,43 @@ async def on_message(message: discord.Message):
     if bot.user.mentioned_in(message) and not message.mention_everyone:
         # shows the typing indicator
         async with message.channel.typing():
-            # if the message was a reply to a previous message:
-            # non-bot message -> AI response as normal
-            # bot KDA message -> check if winning/losing league and find player
-            # - if not able to -> AI response as normal
-            # bot AI response -> read up the chain and continue the conversation
-            normal_ai_response = True
-            conversation = [{"role": "user", "content": message.content}]
-            if message.reference:
-                try:
-                    prev_message = await message.channel.fetch_message(message.reference.message_id)
-                # perhaps the previous message is actually deleted, so it can't be fetched
-                except discord.NotFound:
-                    print_to_log("WARNING", "Could not find message that was replied to")
-                    prev_message = None
-                if prev_message:
-                    # check if it's just a KDA message
-                    key_substrings = ["#", "just", "game", "KDA:"]
-                    if prev_message.author == bot.user and all(term in prev_message.content for term in key_substrings):
-                        normal_ai_response = False
-                        conversation = [{"role": "assistant", "content": prev_message.content}] + conversation
-                        conversation_modified = [{"role": "system", "content": prompt_1}] + conversation
-                        response_text = await get_groq_response(conversation_modified)
-                        if "Yes" in response_text:
-                            # perform the winning/losing league analysis here
-                            riot_id = prev_message.content.split()[0][2:-2]
-                            text = await investigate_player(riot_id)
-                            await send_a_long_message_in_multiple_parts(text, reference=message)
-                        else:
-                            await message.channel.send("Sorry, I'm confused", reference=message)
-                    # begin searching up to assemble the whole conversation
+            conversation = []
+            curr_message = message
+            while curr_message:
+                content = curr_message.content
+                if curr_message.author == bot.user:
+                    key_substrings = ["#", "just", "game", "playing", "KDA:"]
+                    if all(term in content for term in key_substrings):
+                        message_ids = await read_json_file("jsons/message_ids.json")
+                        player_name = content.replace("*", "").split()[0]
+                        curr_message_id = str(curr_message.id)
+                        match_data = None
+                        if curr_message_id in message_ids:
+                            matches = await read_json_file("jsons/matches.json")
+                            match_id = message_ids[curr_message_id]["match_id"]
+                            if match_id in matches:
+                                match_data = matches[match_id]
+                            conversation = [{"role": "user", "content": f"Player: {player_name}.\nMatch data: {match_data}"}] + conversation
+                        if match_data is None:
+                            conversation = [{"role": "user", "content": f"Player: {player_name}.\nMatch data: Could not find match data."}] + conversation
                     else:
-                        while prev_message:
-                            curr_message = prev_message
-                            if prev_message.reference:
-                                try:
-                                    prev_message = await message.channel.fetch_message(prev_message.reference.message_id)
-                                except discord.NotFound:
-                                    print_to_log("WARNING", "Could not find message that was replied to")
-                                    prev_message = None
-                            else:
-                                prev_message = None
-                            if curr_message.author == bot.user:
-                                role = "assistant"
-                            else:
-                                role = "user"
-                            conversation = [{"role": role, "content": curr_message.content}] + conversation
+                        conversation = [{"role": "assistant", "content": content}] + conversation
+                else:
+                    conversation = [{"role": "user", "content": content}] + conversation
+                if curr_message.reference:
+                    try:
+                        prev_message = await message.channel.fetch_message(curr_message.reference.message_id)
+                    # if the original message was deleted, it will throw this exception
+                    except discord.NotFound:
+                        print_to_log("WARNING", "Could not find original message that was replied to")
+                        prev_message = None
+                else:
+                    prev_message = None
+                curr_message = prev_message
 
-            if normal_ai_response:
-                conversation = [{"role": "system", "content": prompt_3}] + conversation
-                response_text = await get_groq_response(conversation)
-                await send_a_long_message_in_multiple_parts(response_text, message)
+            conversation = [{"role": "system", "content": prompt_1}] + conversation
+            response_text = await get_groq_response(conversation)
+            await send_a_long_message_in_multiple_parts(response_text, reference=message)
 
         # lets the bot process other commands? idk if it's necessary since there are no text (non-slash) commands yet
         await bot.process_commands(message)
@@ -272,6 +259,7 @@ class ConfirmView(discord.ui.View):
 @bot.tree.command(name="clear_all_data", description="Clears all data stored by the bot, including players and matches")
 async def clear_all_data(interaction: discord.Interaction):
     """Clears all the JSON files -- only designated users can use"""
+    # put your discord username in here if you want permission to use this command
     if interaction.user.name not in ["duckoverl0rd"]:
         await interaction.response.send_message("Sorry, you don't have the permission to use this command")
         return
@@ -312,14 +300,22 @@ async def automated_kda_message(player_name) -> str:
 async def update_matches_loop():
     """Repeatedly checks all players for new matches, and if one is found, the bot types their KDA in the given discord channels"""
     print_to_log("INFO", "Checking for new matches...")
-
     players = await read_json_file("jsons/players.json")
     matches = await read_json_file("jsons/matches.json")
-    old_match_ids = set()
-    for match_id in matches:
-        old_match_ids.add(match_id)
-    new_match_ids = set()
-    players_with_new_matches = set()
+    message_ids = await read_json_file("jsons/message_ids.json")
+
+    datetime_now = datetime.now(timezone.utc)  # "Aware" UTC
+    # create a static list of keys to avoid changing the size of the dictionary while iterating over it
+    for message_id in list(message_ids.keys()):
+        datetime_sent = datetime.fromisoformat(message_ids[message_id]["datetime_sent"])
+        # deletes old match data after a week
+        if datetime_now - datetime_sent > timedelta(weeks=1):
+            match_id = message_ids[message_id]["match_id"]
+            if match_id in matches:
+                matches.pop(match_id)
+            message_ids.pop(message_id)
+
+    players_with_new_matches = {}
     for player_name in players.keys():
         new_match_id = await get_latest_match_id(players[player_name]["puuid"])
         if new_match_id is None:
@@ -327,21 +323,14 @@ async def update_matches_loop():
             break
         print_to_log("INFO", f"Player {player_name}'s most recent match has ID: {new_match_id}")
         print_to_log("INFO", f"Their previous most recent match had ID {players[player_name]['most_recent_match_id']}")
-        new_match_ids.add(new_match_id)
         if new_match_id != players[player_name]["most_recent_match_id"]:
             players[player_name]["most_recent_match_id"] = new_match_id
-            players_with_new_matches.add(player_name)
+            players_with_new_matches[player_name] = str(new_match_id)  # storing it as a string for use later as a json dictionary key
+            if new_match_id not in matches:
+                matches[new_match_id] = await get_match_data(new_match_id)
     await write_json_file("jsons/players.json", players)
-    print_to_log("INFO", f"Players with new matches -- {players_with_new_matches}")
-
-    match_ids_to_be_deleted = old_match_ids - new_match_ids
-    match_ids_to_be_added = new_match_ids - old_match_ids
-    for match_id in match_ids_to_be_deleted:
-        matches.pop(match_id)
-    for match_id in match_ids_to_be_added:
-        match_data = await get_match_data(match_id)
-        matches[match_id] = match_data
     await write_json_file("jsons/matches.json", matches)
+    print_to_log("INFO", f"Players with new matches -- {players_with_new_matches}")
 
     channels = await read_json_file("jsons/channels.json")
     for channel_id in channels:
@@ -350,4 +339,8 @@ async def update_matches_loop():
                 text = await automated_kda_message(player_name)
                 channel = await bot.fetch_channel(int(channel_id))
                 print_to_log("INFO", f"Sending KDA message for {player_name} in channel {channels[channel_id]["name"]}")
-                await channel.send(text)
+                message = await channel.send(text)
+                message_id = str(message.id)
+                datetime_sent = datetime_now.isoformat()
+                message_ids[message_id] = {"player_name": player_name, "match_id": players_with_new_matches[player_name], "datetime_sent": datetime_sent}
+    await write_json_file("jsons/message_ids.json", message_ids)
