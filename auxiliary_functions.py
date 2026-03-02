@@ -119,9 +119,3 @@ async def get_groq_response(all_prompts: list[dict[str, str]]) -> str:
 # prompts for groq
 with open("prompts/prompt_1.txt", mode="r") as f:
     prompt_1 = f.read()
-
-with open("prompts/prompt_2.txt", mode="r") as f:
-    prompt_2 = f.read()
-
-with open("prompts/prompt_3.txt", mode="r") as f:
-    prompt_3 = f.read()
