@@ -48,7 +48,7 @@ async def get_match_data(match_id):
     filtered_data = {}
     queue_types = {
         400: "Draft Pick", 420: "Ranked Solo/Duo", 440: "Ranked Flex", 450: "ARAM",
-        490: "Quickplay", 700: "SR Clash", 720: "ARAM Clash", 900: "ARURF",
+        490: "Quickplay", 700: "SR Clash", 720: "ARAM Clash", 900: "ARURF", 1700: "Arena",
         1710: "Arena", 1900: "Pick URF", 2400: "ARAM: Mayhem"
     }
     filtered_data["queue_type"] = queue_types[raw_data["info"]["queueId"]]
