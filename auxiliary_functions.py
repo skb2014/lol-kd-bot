@@ -79,12 +79,13 @@ async def get_http_response(url: str) -> dict | None:
         async with session.get(url) as response:
             response_code_errors = {
                 400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 429: "Rate Limit Exceeded",
-                500: "Internal Server Error", 502: "Bad Gateway", 503: "Service Unavailable", 504: "Gateway Timeout"
+                500: "Internal Server Error", 502: "Bad Gateway", 503: "Service Unavailable", 504: "Gateway Timeout", 520: "Nonstandard Cloudflare Error (server-side)"
             }
             # you do not need to await response.status as it is just an integer, not a coroutine (unlike .json() for example)
             if response.status != 200:
+                response_code = response_code_errors.get(response.status, f"{response.status}: Unknown Error Code")
                 print_to_log("WARNING",
-                             f"Request to Riot API failed with status code {response.status} {response_code_errors[response.status]}")
+                             f"Request to Riot API failed with status code {response.status} {response_code}")
                 return None
             else:
                 return await response.json()
