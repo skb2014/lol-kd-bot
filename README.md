@@ -26,7 +26,7 @@ Set up the bot with the commands below. The bot automatically tracks all players
 /list_players -- lists all currently tracked players in the current channel
 
 /investigate_player -- checks a player's most recent match to see if they played winning/losing league
-// NOTE: you can also invoke this by replying to an automated KDA message and asking the bot to judge the player
+// NOTE: you can also invoke this command by replying to an automated KDA message and asking the bot to judge the player
 
 /clear_all_data -- clears all channel, player, and match data from the bot's storage
 
@@ -41,20 +41,18 @@ Set up the bot with the commands below. The bot automatically tracks all players
         - matches.json -- stores all useful match data for all matches that at least one player has as their most recent match
     
         - players.json -- stores all tracked players, their most recent match_id, and which channels they're in
+
+        - message_ids.json -- tbh I'm still not sure what this is
     
     logs (NOT TRACKED) -- folder which contains the log files generatd by the bot
     
-        - full_info.log -- records all bot activity, even the debug status messages from discord
+        - full_info.log -- records all bot activity, including the debug status messages from discord.py
     
         - important_stuff.log -- records only what is explicitly logged in the code
     
     prompts -- folder which contains the system prompts used by the groq LLM
     
-        - prompt_1.txt -- the prompt which asks the bot to perform the check to determine whether a user is requesting a KDA check
-    
-        - prompt_2.txt -- the prompt which outlines how the bot is supposed to converse with users 
-    
-        - prompt_3.txt -- the prompt which tells the bot to analyze match data
+        - prompt_1.txt -- acts as a system prompt for the discord bot
     
     .env (NOT TRACKED) -- contains API keys and such
     
@@ -68,6 +66,10 @@ Set up the bot with the commands below. The bot automatically tracks all players
     
     discord_functionality.py -- the file which contains the code for all the discord functions and commands (including conversing with the LLM)
     
-    testing_bot.py (NOT TRACKED) -- a file which I have on my personal laptop that runs a separte "testing" bot with the same (or slightly modified) functionality as the main bot
+    testing_bot.py (NOT TRACKED) -- a file which I have on my personal computer that runs a separte "testing" bot with the same (or slightly modified) functionality as the main bot
     
     main.py -- the file which runs the lol-kd-tracker bot
+
+
+### Notes
+

@@ -10,7 +10,8 @@ intents.guilds = True
 intents.members = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
-# I want to be able to run the bot in a "testing" mode where it doesn't execute the update matches loop
+# if the bot is being run in "testing mode", set this to True
+# "testing mode" disables the updates matches loop; it is for testing the bot command themselves
 bot.is_testing = False
 
 
@@ -39,12 +40,12 @@ async def on_ready():
 async def send_a_long_message_in_multiple_parts(content: str, reference: discord.Message | None = None):
     # because discord has a 2000 character limit for non nitro members
     # note: if the text seems to randomly truncate, it's because it's
-    # exceeding the token limit in the LLM query
+    # exceeding the output token limit itself from Groq
     while len(content) > 1985:
         remainder_text = content[1985:]
         # updates message_to_reply_to to the message it just sent, so it can chain replies
-        reference = await reference.channel.send(content[:1985] + " ...(cont.)", reference=reference)
-        content = remainder_text
+        reference = await reference.channel.send(content[:1985] + " ...(cont.)", reference=reference)  # reference is initially given as arg to this method
+        content = content[1985:]
     await reference.channel.send(content, reference=reference)
 
 
