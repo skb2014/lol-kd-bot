@@ -71,7 +71,8 @@ Set up the bot with the commands below. The bot automatically tracks all players
     main.py -- the file which runs the lol-kd-tracker bot
 
 
-### Notes
+### Notes for myself
+
 
 Use ssh pi2_LittleYay as an alias
 
@@ -81,3 +82,5 @@ tmux new -s <session-name>: creates a new session named session-name
 ctrl B -> D: detaches the current session
 tmux attach -t <session-name>: opens the session named session-name
 tmux kill-session -t <session_name>: self-explanatory
+
+use cat to read short files, use less to read long files. press q to quit out and return to the terminal, such as when reading a file
