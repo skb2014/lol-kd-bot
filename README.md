@@ -73,3 +73,11 @@ Set up the bot with the commands below. The bot automatically tracks all players
 
 ### Notes
 
+Use ssh pi2_LittleYay as an alias
+
+tmux commands:
+tmux ls: shows all tmux sessions? windows? panes? idk
+tmux new -s <session-name>: creates a new session named session-name
+ctrl B -> D: detaches the current session
+tmux attach -t <session-name>: opens the session named session-name
+tmux kill-session -t <session_name>: self-explanatory
