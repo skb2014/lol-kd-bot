@@ -11,7 +11,8 @@ intents.members = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 # if the bot is being run in "testing mode", set this to True
-# "testing mode" disables the updates matches loop; it is for testing the bot command themselves
+# "testing mode" disables the updates matches loop; it is for testing the bot command themselves'
+# for now it actually doesn't disable the update matches loop
 bot.is_testing = False
 
 
@@ -32,8 +33,9 @@ async def setup_hook():
 async def on_ready():
     print_to_log("INFO", f"Logged in as {bot.user}")
     print_to_log("INFO", f"Connected to {len(bot.guilds)} server(s)")
-    if not bot.is_testing:
-        update_matches_loop.start()
+    # if not bot.is_testing:
+    #     update_matches_loop.start()
+    update_matches_loop.start()
     print("Bot is running...")
 
 
@@ -42,7 +44,6 @@ async def send_a_long_message_in_multiple_parts(content: str, reference: discord
     # note: if the text seems to randomly truncate, it's because it's
     # exceeding the output token limit itself from Groq
     while len(content) > 1985:
-        remainder_text = content[1985:]
         # updates message_to_reply_to to the message it just sent, so it can chain replies
         reference = await reference.channel.send(content[:1985] + " ...(cont.)", reference=reference)  # reference is initially given as arg to this method
         content = content[1985:]
@@ -93,7 +94,7 @@ async def on_message(message: discord.Message):
                 curr_message = prev_message
 
             conversation = [{"role": "system", "content": prompt_1}] + conversation
-            response_text = await get_groq_response(conversation)
+            response_text = await get_openai_response(conversation)
             await send_a_long_message_in_multiple_parts(response_text, reference=message)
 
         # lets the bot process other commands? idk if it's necessary since there are no text (non-slash) commands yet
@@ -232,16 +233,29 @@ async def investigate_player(player_name: str) -> str:
     conversation = [{"role": "system", "content": prompt_1}]
     conversation += [{"role": "user", "content": f"Player Name: {player_name}."}]
     conversation += [{"role": "user", "content": f"Match Data: {match_data}."}]
-    response_text = await get_groq_response(conversation)
+    response_text = await get_openai_response(conversation)
     return response_text
 
 
 @bot.tree.command(name="investigate_player", description="Checks player's most recent game to determine winning/losing league")
 @app_commands.autocomplete(player_name=player_autocomplete)
-async def investigate_player_command(interaction: discord.Interaction | discord.Message, player_name: str):
-    text = await investigate_player(player_name)
-    await interaction.response.send_message(text)
+async def investigate_player_command(interaction: discord.Interaction, player_name: str):
+    await interaction.response.defer()  # must be first
 
+    try:
+        text = await investigate_player(player_name)
+    except Exception as e:
+        print(f"investigate_player failed: {e!r}")
+        await interaction.followup.send("Something went wrong while investigating that player. Try again in a bit.")
+        return
+
+    if len(text) <= 1985:
+        await interaction.followup.send(text)
+        return
+
+    # send the first chunk as the followup, then chain the rest from that message
+    first_message = await interaction.followup.send(text[:1985] + " ...(cont.)", wait=True)
+    await send_a_long_message_in_multiple_parts(text[1985:], reference=first_message)
 
 class ConfirmView(discord.ui.View):
     def __init__(self):

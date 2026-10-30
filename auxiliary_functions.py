@@ -5,6 +5,7 @@ import aiofiles
 import json
 import logging
 from groq import AsyncGroq
+from openai import AsyncOpenAI
 import inspect
 
 # logger stuff
@@ -110,6 +111,29 @@ async def get_groq_response(all_prompts: list[dict[str, str]]) -> str:
             reasoning_effort="medium",
             stream=None,
             stop=None
+        )
+        response_text = chat_completion.choices[0].message.content
+        return response_text
+
+    except Exception as e:
+        return f"Error: {e}"
+
+# OpenAI
+async_openai_client = AsyncOpenAI(api_key=getenv('OPENAI_API_KEY'))
+
+async def get_openai_response(all_prompts: list[dict[str, str]]) -> str:
+    try:
+        chat_completion = await async_openai_client.chat.completions.create(
+            model="gpt-6-luna",
+            messages=all_prompts,
+            # # medium temperature for memes
+            # temperature=0.5,
+            # # the hidden "thinking" tokens also count, which is why this is so much higher
+            # max_completion_tokens=8192,
+            # top_p=1,
+            # reasoning_effort="medium",
+            # stream=None,
+            # stop=None
         )
         response_text = chat_completion.choices[0].message.content
         return response_text
