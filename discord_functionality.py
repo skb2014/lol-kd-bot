@@ -315,7 +315,7 @@ async def automated_kda_message(player_name) -> str:
             text += f"{sided_text}"
     return text
 
-@tasks.loop(seconds=60)
+@tasks.loop(seconds=120)
 async def update_matches_loop():
     """Repeatedly checks all players for new matches, and if one is found, the bot types their KDA in the given discord channels"""
     print_to_log("INFO", "Checking for new matches...")
