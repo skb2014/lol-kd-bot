@@ -94,7 +94,7 @@ async def on_message(message: discord.Message):
                 curr_message = prev_message
 
             conversation = [{"role": "system", "content": prompt_1}] + conversation
-            response_text = await get_openai_response(conversation)
+            response_text = await get_groq_response(conversation)
             await send_a_long_message_in_multiple_parts(response_text, reference=message)
 
         # lets the bot process other commands? idk if it's necessary since there are no text (non-slash) commands yet
@@ -233,7 +233,7 @@ async def investigate_player(player_name: str) -> str:
     conversation = [{"role": "system", "content": prompt_1}]
     conversation += [{"role": "user", "content": f"Player Name: {player_name}."}]
     conversation += [{"role": "user", "content": f"Match Data: {match_data}."}]
-    response_text = await get_openai_response(conversation)
+    response_text = await get_groq_response(conversation)
     return response_text
 
 

@@ -75,7 +75,7 @@ Set up the bot with the commands below. The bot automatically tracks all players
 
 
 Use ssh pi2_LittleYay as an alias
-To run the bot, use cd <directory> to navigate to the lol-kd-bot folder, and then use .venv/bin/python main.py
+To run the bot, use cd <directory> to navigate to the lol-kd-bot folder, and then use source .venv/bin/activate to activate the .venv, then do .venv/bin/python main.py
 
 tmux commands:
 tmux ls: shows all tmux sessions? windows? panes? idk (it will say error connecting to /tmp/tmux-1000/default if there are no sessions running)
@@ -83,6 +83,8 @@ tmux new -s <session-name>: creates a new session named session-name
 ctrl B -> D: detaches the current session
 tmux attach -t <session-name>: opens the session named session-name
 tmux kill-session -t <session_name>: self-explanatory
+
+if you are in a tmux window, in order to scroll, do ctrl B -> [, then use arrow keys or page up/down, and press q to exit
 
 use cat to read short files, use less to read long files. press q to quit out and return to the terminal, such as when reading a file
 
